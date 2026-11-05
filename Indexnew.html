@@ -9,8 +9,14 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- xlsx-js-style: SheetJS with cell styling, merges, fonts & borders -->
+  <!-- Primary: xlsx-js-style for reading and styled Excel writing -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <!-- Fallback: Standard SheetJS if primary CDN fails on network -->
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+    }
+  </script>
   
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,7 +63,6 @@
       margin: 8mm 10mm 8mm 10mm;
     }
 
-    /* Table wrap rules for PDF/Print resilience */
     .invoice-table {
       table-layout: auto;
       width: 100%;
@@ -100,7 +105,7 @@
         </div>
       </div>
 
-      <!-- FEATURE 3: DUAL-MODE BILLING FORMAT SWITCHER -->
+      <!-- DUAL-MODE BILLING FORMAT SWITCHER -->
       <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
         <button id="mode-btn-freight" type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700">
           <i data-lucide="truck" class="w-3.5 h-3.5"></i>
@@ -129,6 +134,12 @@
           <i data-lucide="store" class="w-3.5 h-3.5"></i>
           <span class="hidden sm:inline">Settings</span>
         </button>
+
+        <!-- One-Click Download HTML File Button -->
+        <button id="btn-download-app-html" title="Download this standalone application as index.html file to your computer" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg transition-all shadow-sm">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span class="hidden lg:inline">Save App HTML</span>
+        </button>
       </div>
     </div>
   </header>
@@ -140,25 +151,37 @@
       <!-- LEFT WORKFLOW CONTROLS (5 COLS) -->
       <div class="lg:col-span-5 space-y-4 no-print">
         
-        <!-- STEP 1: UPLOAD FILE -->
+        <!-- STEP 1: UPLOAD FILE (COMPLETELY FIXED PICKER) -->
         <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex items-center justify-between mb-2.5">
             <div class="flex items-center gap-2">
               <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">1</span>
               <h2 class="font-semibold text-sm text-slate-900">Upload Booking / Sales Excel</h2>
             </div>
-            <span id="file-status" class="text-[11px] text-slate-400 truncate max-w-[150px]">No file loaded</span>
+            <span id="file-status" class="text-[11px] text-slate-400 font-medium truncate max-w-[180px]">No file loaded</span>
           </div>
 
-          <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50/70 hover:bg-indigo-50/30 rounded-xl p-4 text-center cursor-pointer transition-all">
-            <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden">
-            <div class="flex flex-col items-center justify-center gap-1.5">
-              <div class="w-8 h-8 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-600">
-                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-              </div>
-              <p class="text-xs font-medium text-slate-700">Click to browse or drop .xlsx / .xls / .csv</p>
-              <p class="text-[10px] text-slate-400">100% Client-side safe (Runs strictly in your browser)</p>
+          <!-- Hidden Native File Input -->
+          <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv, .xlsm, .xlsb, .ods" class="hidden">
+
+          <!-- Drop Zone as Native HTML Label (Zero Event Recursion Bugs) -->
+          <label for="excel-file-input" id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/70 hover:bg-indigo-50/40 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 block">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shadow-xs">
+              <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
             </div>
+            <div>
+              <p class="text-xs font-semibold text-slate-800">Click anywhere here or drag & drop</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Supports .xlsx, .xls, .csv, .xlsm, .ods</p>
+            </div>
+            <button type="button" id="btn-browse-file" class="mt-1 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs pointer-events-auto">
+              Browse Excel File
+            </button>
+          </label>
+
+          <!-- Sheet Selector (Auto-appears if Excel has multiple sheets) -->
+          <div id="sheet-selector-container" class="mt-3 pt-3 border-t border-slate-100 hidden">
+            <label class="block text-[11px] font-semibold text-slate-700 mb-1">Select Worksheet from File:</label>
+            <select id="sheet-select" class="w-full border border-indigo-200 rounded-lg p-2 bg-indigo-50/40 text-xs font-semibold text-indigo-950 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
           </div>
         </div>
 
@@ -214,7 +237,7 @@
           </div>
         </div>
 
-        <!-- FEATURE 2: FLEXIBLE & OPTIONAL CLIENT PROFILE MANAGEMENT -->
+        <!-- CLIENT PROFILE MANAGEMENT -->
         <div id="step-client-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden">
           <div class="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none" id="toggle-client-card">
             <div class="flex items-center gap-2">
@@ -315,7 +338,7 @@
             <h2 class="font-semibold text-sm text-slate-900">Billing Meta & Tax Adjustments</h2>
           </div>
 
-          <!-- GST TAX INVOICE ARCHITECTURE (VISIBLE ONLY IN GST TAX MODE) -->
+          <!-- GST TAX INVOICE ARCHITECTURE -->
           <div id="gst-settings-panel" class="hidden bg-indigo-50/70 border-2 border-indigo-200 rounded-xl p-3.5 space-y-3 shadow-xs">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
@@ -482,7 +505,7 @@
               <span class="text-xs font-semibold text-slate-700">Live Preview</span>
             </div>
             
-            <!-- FEATURE 1: A4 ORIENTATION SWITCHER -->
+            <!-- A4 ORIENTATION SWITCHER -->
             <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
               <button id="btn-orient-portrait" type="button" class="px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1">
                 <i data-lucide="file-text" class="w-3 h-3"></i> Portrait
@@ -593,13 +616,12 @@
               </div>
             </div>
 
-            <!-- BILLED TO / CLIENT PROFILE SECTION (FEATURE 2 INTEGRATION) -->
+            <!-- BILLED TO / CLIENT PROFILE SECTION -->
             <div id="view-billed-to-card" class="mb-5 bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 flex flex-wrap justify-between items-start gap-4">
               <div class="space-y-1 max-w-lg">
                 <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Billed To (Client / Consignee):</span>
                 <p id="view-customer-name" class="text-base font-bold text-slate-900">No Customer Selected</p>
                 
-                <!-- Optional details cleanly hidden if empty -->
                 <p id="view-client-contact" class="text-xs text-slate-600 hidden"></p>
                 <p id="view-client-address" class="text-xs text-slate-500 whitespace-pre-line leading-relaxed hidden"></p>
                 <div id="view-client-tax-ids" class="flex flex-wrap gap-3 text-xs font-mono font-medium pt-0.5 hidden">
@@ -615,7 +637,7 @@
               </div>
             </div>
 
-            <!-- DYNAMIC ITEMS TABLE (FEATURE 1: EXACT MATCH TO USER CHECKLIST & AUTO-SCALED) -->
+            <!-- DYNAMIC ITEMS TABLE -->
             <div class="overflow-x-auto">
               <table class="invoice-table w-full text-left text-xs border-collapse">
                 <thead>
@@ -641,7 +663,6 @@
               
               <!-- Left Column: Settlement, Amount in Words & Bank Details -->
               <div class="w-full sm:w-1/2 text-xs space-y-2.5">
-                <!-- Amount in Words -->
                 <div class="bg-indigo-50/50 border border-indigo-200 rounded-lg p-2.5">
                   <span class="text-[10px] font-bold uppercase text-indigo-900 block tracking-wider">Amount in Words:</span>
                   <p id="view-amount-words" class="font-semibold text-slate-800 text-[11px] italic mt-0.5">
@@ -663,7 +684,7 @@
                 </p>
               </div>
 
-              <!-- Right Column: Calculation Breakdown (Handles Freight or GST Tax Breakdown) -->
+              <!-- Right Column: Calculation Breakdown -->
               <div class="w-full sm:w-5/12 space-y-1.5 text-xs text-slate-700">
                 <div class="flex justify-between py-1">
                   <span id="lbl-view-subtotal" class="text-slate-500">Taxable Value / Subtotal:</span>
@@ -675,7 +696,7 @@
                   <span id="view-discount" class="font-mono">-₹0.00</span>
                 </div>
 
-                <!-- GST Tax Rows (Feature 3) -->
+                <!-- GST Tax Rows -->
                 <div id="row-cgst" class="hidden flex justify-between py-1 text-slate-700 border-t border-slate-100">
                   <span id="view-cgst-label">CGST (2.5%):</span>
                   <span id="view-cgst-val" class="font-mono">₹0.00</span>
@@ -894,7 +915,7 @@
 
   <!-- APPLICATION LOGIC & STYLED EXCEL / PRINT ENGINE -->
   <script>
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 
     // Indian Number to Currency Words Converter
     function numberToWordsIndian(num) {
@@ -927,8 +948,9 @@
 
     // Central Application State
     const STATE = {
-      billingMode: 'freight', // 'freight' | 'gst'
-      printOrientation: 'portrait', // 'portrait' | 'landscape'
+      workbook: null,
+      billingMode: 'freight',
+      printOrientation: 'portrait',
       biz: {
         name: 'Apex Travel & Logistics Services',
         address: 'Plot 42, Green Valley Commercial Center, Pune, Maharashtra - 411001',
@@ -954,7 +976,7 @@
       gst: {
         placeOfSupply: 'Maharashtra (27)',
         stateCode: '27',
-        taxType: 'intra', // 'intra' (CGST+SGST) | 'inter' (IGST)
+        taxType: 'intra',
         rate: 5,
         rcm: 'no',
         hsnSac: '996511',
@@ -1081,313 +1103,157 @@
     };
 
     // =========================================================================
-    // FEATURE 3: DUAL-MODE BILLING FORMAT SWITCHER (FREIGHT VS GST TAX)
+    // ROBUST EXCEL FILE SELECTION & DRAG-DROP (COMPLETELY PREVENTS RECURSION)
     // =========================================================================
-    const btnModeFreight = document.getElementById('mode-btn-freight');
-    const btnModeGst = document.getElementById('mode-btn-gst');
-    const headerFormatBadge = document.getElementById('header-format-badge');
-    const gstSettingsPanel = document.getElementById('gst-settings-panel');
-    const viewDocBadge = document.getElementById('view-doc-badge');
-    const viewGstMetaBox = document.getElementById('view-gst-meta-box');
-    const viewSupplierGstinRow = document.getElementById('view-supplier-gstin-row');
-    const lblViewInvNo = document.getElementById('lbl-view-inv-no');
-    const lblSumCol = document.getElementById('lbl-sum-col');
-    const lblViewSubtotal = document.getElementById('lbl-view-subtotal');
-    const viewDeclarationText = document.getElementById('view-declaration-text');
-    const viewComputerGenNote = document.getElementById('view-computer-gen-note');
+    const fileInput = document.getElementById('excel-file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const btnBrowse = document.getElementById('btn-browse-file');
 
-    function switchBillingMode(mode) {
-      STATE.billingMode = mode;
-      if (mode === 'freight') {
-        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
-        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
-        headerFormatBadge.innerText = 'Freight Summary';
-        headerFormatBadge.className = 'text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200';
-
-        gstSettingsPanel.classList.add('hidden');
-        viewGstMetaBox.classList.add('hidden');
-        viewSupplierGstinRow.classList.add('hidden');
-
-        viewDocBadge.innerText = 'FREIGHT BILL / TRIP SUMMARY';
-        lblViewInvNo.innerText = 'Bill / Summary No.';
-        lblSumCol.innerText = 'Column to Sum for Subtotal / Freight';
-        lblViewSubtotal.innerText = 'Total Freight Charges:';
-        viewDeclarationText.innerText = '* Freight Summary Declaration: Computer-generated freight trip summary issued without Goods and Services Tax liability.';
-        viewComputerGenNote.innerText = 'Computer-generated Freight Bill. No physical signature required.';
-      } else {
-        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
-        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
-        headerFormatBadge.innerText = 'GST Tax Invoice';
-        headerFormatBadge.className = 'text-[10px] font-semibold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200';
-
-        gstSettingsPanel.classList.remove('hidden');
-        viewGstMetaBox.classList.remove('hidden');
-        viewSupplierGstinRow.classList.remove('hidden');
-
-        viewDocBadge.innerText = 'TAX INVOICE';
-        lblViewInvNo.innerText = 'Tax Invoice No.';
-        lblSumCol.innerText = 'Column to Sum for Taxable Value';
-        lblViewSubtotal.innerText = 'Taxable Value:';
-        viewDeclarationText.innerText = '* GST Declaration: Certified that particulars given above are true and correct and tax payable is computed under GST law.';
-        viewComputerGenNote.innerText = 'Computer-generated GST Tax Invoice. No physical signature required.';
-      }
-      renderDynamicPreviewTable();
-      calculateTotals();
-    }
-
-    btnModeFreight.onclick = () => switchBillingMode('freight');
-    btnModeGst.onclick = () => switchBillingMode('gst');
-
-    // GST Input Binds
-    document.getElementById('gst-place-of-supply').oninput = (e) => {
-      STATE.gst.placeOfSupply = e.target.value;
-      document.getElementById('view-place-of-supply').innerText = e.target.value || 'N/A';
-    };
-    document.getElementById('gst-state-code').oninput = (e) => {
-      STATE.gst.stateCode = e.target.value;
-    };
-    document.getElementById('gst-tax-type').onchange = (e) => {
-      STATE.gst.taxType = e.target.value;
-      calculateTotals();
-    };
-    document.getElementById('gst-rate-select').onchange = (e) => {
-      STATE.gst.rate = parseFloat(e.target.value) || 0;
-      calculateTotals();
-    };
-    document.getElementById('gst-rcm-toggle').onchange = (e) => {
-      STATE.gst.rcm = e.target.value;
-      document.getElementById('view-rcm-status').innerText = e.target.value.toUpperCase();
-      calculateTotals();
-    };
-    document.getElementById('supplier-gstin').oninput = (e) => {
-      STATE.biz.gstin = e.target.value.toUpperCase();
-      document.getElementById('view-supplier-gstin').innerText = STATE.biz.gstin;
-      saveSettings();
-    };
-
-    // =========================================================================
-    // FEATURE 1: A4 ORIENTATION SWITCHER (PORTRAIT VS LANDSCAPE)
-    // =========================================================================
-    const btnOrientPortrait = document.getElementById('btn-orient-portrait');
-    const btnOrientLandscape = document.getElementById('btn-orient-landscape');
-    const printStyleSheet = document.getElementById('print-orientation-style');
-
-    function setPageOrientation(orientation) {
-      STATE.printOrientation = orientation;
-      if (orientation === 'landscape') {
-        btnOrientLandscape.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
-        btnOrientPortrait.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
-        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*portrait;/g, 'size: A4 landscape;');
-        document.getElementById('printable-invoice').style.maxWidth = '1050px';
-      } else {
-        btnOrientPortrait.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
-        btnOrientLandscape.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
-        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*landscape;/g, 'size: A4 portrait;');
-        document.getElementById('printable-invoice').style.maxWidth = '850px';
-      }
-    }
-
-    btnOrientPortrait.onclick = () => setPageOrientation('portrait');
-    btnOrientLandscape.onclick = () => setPageOrientation('landscape');
-
-    // =========================================================================
-    // FEATURE 2: CLIENT PROFILE MANAGEMENT & QUICK PICK LIST
-    // =========================================================================
-    const toggleClientCard = document.getElementById('toggle-client-card');
-    const clientCardBody = document.getElementById('client-card-body');
-    const clientCardChevron = document.getElementById('client-card-chevron');
-    const clientFilledBadge = document.getElementById('client-filled-badge');
-    let isClientCardExpanded = true;
-
-    toggleClientCard.onclick = () => {
-      isClientCardExpanded = !isClientCardExpanded;
-      if (isClientCardExpanded) {
-        clientCardBody.classList.remove('hidden');
-        clientCardChevron.classList.remove('rotate-180');
-      } else {
-        clientCardBody.classList.add('hidden');
-        clientCardChevron.classList.add('rotate-180');
-      }
-    };
-
-    function refreshClientQuickList() {
-      const select = document.getElementById('quick-client-select');
-      select.innerHTML = '<option value="">-- No Saved Client Selected --</option>' + 
-        STATE.clientProfiles.map((c, i) => `<option value="${i}">${escapeHTML(c.name)} (${c.gstin || c.phone || 'Saved'})</option>`).join('');
-    }
-
-    function syncClientProfileUI() {
-      const name = document.getElementById('client-firm-name').value.trim();
-      const person = document.getElementById('client-contact-person').value.trim();
-      const phone = document.getElementById('client-phone').value.trim();
-      const address = document.getElementById('client-address').value.trim();
-      const gstin = document.getElementById('client-gstin').value.trim();
-      const pan = document.getElementById('client-pan').value.trim();
-
-      STATE.activeClient = { name, contactPerson: person, phone, address, gstin, pan };
-
-      // Update View
-      const viewName = document.getElementById('view-customer-name');
-      const viewContact = document.getElementById('view-client-contact');
-      const viewAddress = document.getElementById('view-client-address');
-      const viewTaxIds = document.getElementById('view-client-tax-ids');
-      const viewGstin = document.getElementById('view-client-gstin');
-      const viewPan = document.getElementById('view-client-pan');
-
-      viewName.innerText = name || STATE.selectedCustomer || 'No Customer Selected';
-
-      let hasExtra = false;
-
-      // Contact Person / Phone
-      if (person || phone) {
-        hasExtra = true;
-        viewContact.innerText = [person ? `Attn: ${person}` : '', phone ? `Ph: ${phone}` : ''].filter(Boolean).join(' | ');
-        viewContact.classList.remove('hidden');
-      } else {
-        viewContact.classList.add('hidden');
-      }
-
-      // Address
-      if (address) {
-        hasExtra = true;
-        viewAddress.innerText = address;
-        viewAddress.classList.remove('hidden');
-      } else {
-        viewAddress.classList.add('hidden');
-      }
-
-      // GSTIN / PAN
-      if (gstin || pan) {
-        hasExtra = true;
-        viewTaxIds.classList.remove('hidden');
-        if (gstin) {
-          viewGstin.innerText = `GSTIN: ${gstin.toUpperCase()}`;
-          viewGstin.classList.remove('hidden');
-        } else {
-          viewGstin.classList.add('hidden');
-        }
-        if (pan) {
-          viewPan.innerText = `PAN: ${pan.toUpperCase()}`;
-          viewPan.classList.remove('hidden');
-        } else {
-          viewPan.classList.add('hidden');
-        }
-      } else {
-        viewTaxIds.classList.add('hidden');
-      }
-
-      if (hasExtra) {
-        clientFilledBadge.classList.remove('hidden');
-      } else {
-        clientFilledBadge.classList.add('hidden');
-      }
-    }
-
-    // Input listeners for Client details
-    ['client-firm-name', 'client-contact-person', 'client-phone', 'client-address', 'client-gstin', 'client-pan'].forEach(id => {
-      document.getElementById(id).addEventListener('input', syncClientProfileUI);
+    // Independent Browse Button
+    btnBrowse.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fileInput.click();
     });
 
-    document.getElementById('btn-save-current-client').onclick = () => {
-      const name = document.getElementById('client-firm-name').value.trim() || STATE.selectedCustomer;
-      if (!name) {
-        alert('Please enter a Client / Customer name first.');
+    fileInput.addEventListener('change', function(e) {
+      if (this.files && this.files.length > 0) {
+        handleFileSelection(this.files[0]);
+        this.value = ''; // Reset so uploading identical file triggers change
+      }
+    });
+
+    // Global drag prevention to prevent browser opening dropped files
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+
+    dropZone.addEventListener('dragenter', () => dropZone.classList.add('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('drop', (e) => {
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/70');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelection(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFileSelection(file) {
+      if (!file) return;
+      document.getElementById('file-status').innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      parseUploadedFile(file);
+    }
+
+    // Parse Excel via SheetJS / xlsx-js-style with dual format fallback
+    function parseUploadedFile(file) {
+      if (!file) return;
+      
+      if (typeof XLSX === 'undefined') {
+        alert('Excel parsing engine is loading. Please check internet connectivity and try again.');
         return;
       }
 
-      const newProfile = {
-        name: name,
-        contactPerson: document.getElementById('client-contact-person').value.trim(),
-        phone: document.getElementById('client-phone').value.trim(),
-        address: document.getElementById('client-address').value.trim(),
-        gstin: document.getElementById('client-gstin').value.trim(),
-        pan: document.getElementById('client-pan').value.trim()
-      };
-
-      const existingIdx = STATE.clientProfiles.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
-      if (existingIdx >= 0) {
-        STATE.clientProfiles[existingIdx] = newProfile;
-      } else {
-        STATE.clientProfiles.push(newProfile);
-      }
-
-      saveClientProfilesToStorage();
-      refreshClientQuickList();
-      alert(`Client profile for "${name}" saved to Quick List!`);
-    };
-
-    document.getElementById('quick-client-select').onchange = (e) => {
-      const idx = e.target.value;
-      if (idx === '') return;
-      const c = STATE.clientProfiles[parseInt(idx)];
-      if (!c) return;
-
-      document.getElementById('client-firm-name').value = c.name || '';
-      document.getElementById('client-contact-person').value = c.contactPerson || '';
-      document.getElementById('client-phone').value = c.phone || '';
-      document.getElementById('client-address').value = c.address || '';
-      document.getElementById('client-gstin').value = c.gstin || '';
-      document.getElementById('client-pan').value = c.pan || '';
-      syncClientProfileUI();
-    };
-
-    document.getElementById('btn-clear-client').onclick = () => {
-      document.getElementById('client-contact-person').value = '';
-      document.getElementById('client-phone').value = '';
-      document.getElementById('client-address').value = '';
-      document.getElementById('client-gstin').value = '';
-      document.getElementById('client-pan').value = '';
-      document.getElementById('quick-client-select').value = '';
-      syncClientProfileUI();
-    };
-
-    // File Drag & Drop
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('excel-file-input');
-    dropZone.onclick = () => fileInput.click();
-
-    dropZone.ondragover = (e) => {
-      e.preventDefault();
-      dropZone.classList.add('border-indigo-500', 'bg-indigo-50/50');
-    };
-    dropZone.ondragleave = () => dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/50');
-    dropZone.ondrop = (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/50');
-      if (e.dataTransfer.files.length) parseUploadedFile(e.dataTransfer.files[0]);
-    };
-    fileInput.onchange = (e) => {
-      if (e.target.files.length) parseUploadedFile(e.target.files[0]);
-    };
-
-    // Parse Excel via xlsx-js-style
-    function parseUploadedFile(file) {
-      if (!file) return;
-      document.getElementById('file-status').innerText = file.name;
-      
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = function(e) {
         try {
           const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: true });
           
-          if (!json || json.length === 0) {
-            alert('The file contains no readable rows.');
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+            alert('No readable sheets found in this Excel file.');
             return;
           }
 
-          loadRawDataset(json, file.name);
+          STATE.workbook = workbook;
+          setupSheetSelector(workbook, file.name);
         } catch (err) {
-          console.error(err);
-          alert('Could not parse the file. Please verify it is a valid .xlsx, .xls, or .csv');
+          console.warn('ArrayBuffer read failed, trying binary string parser:', err);
+          try {
+            const binaryReader = new FileReader();
+            binaryReader.onload = function(be) {
+              const workbook = XLSX.read(be.target.result, { type: 'binary', cellDates: true });
+              STATE.workbook = workbook;
+              setupSheetSelector(workbook, file.name);
+            };
+            binaryReader.readAsBinaryString(file);
+          } catch (err2) {
+            console.error('Complete read failure:', err2);
+            alert('Could not parse this Excel file. Please verify it is a valid .xlsx, .xls, or .csv');
+          }
         }
+      };
+      reader.onerror = function() {
+        alert('Error reading the selected file from disk.');
       };
       reader.readAsArrayBuffer(file);
     }
 
-    // Load Dataset & Auto-detect Columns
+    // Handles Multi-Sheet Workbooks & Header Detection
+    function setupSheetSelector(workbook, fileName) {
+      const sheetContainer = document.getElementById('sheet-selector-container');
+      const sheetSelect = document.getElementById('sheet-select');
+      
+      if (workbook.SheetNames.length > 1) {
+        sheetContainer.classList.remove('hidden');
+        sheetSelect.innerHTML = workbook.SheetNames.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
+        sheetSelect.onchange = (e) => loadSheetData(workbook, e.target.value, fileName);
+      } else {
+        sheetContainer.classList.add('hidden');
+      }
+
+      loadSheetData(workbook, workbook.SheetNames[0], fileName);
+    }
+
+    function loadSheetData(workbook, sheetName, fileName) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet || !sheet['!ref']) {
+        alert(`Worksheet "${sheetName}" is empty.`);
+        return;
+      }
+
+      // Convert to array of arrays first to find the first real header row
+      const rawMatrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (!rawMatrix || rawMatrix.length === 0) {
+        alert(`No data rows found in worksheet "${sheetName}".`);
+        return;
+      }
+
+      // Detect header row index (skips title banners/blank rows)
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(rawMatrix.length, 15); i++) {
+        const row = rawMatrix[i];
+        if (Array.isArray(row)) {
+          const filled = row.filter(cell => String(cell).trim() !== '');
+          if (filled.length >= 2) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+      }
+
+      const json = XLSX.utils.sheet_to_json(sheet, {
+        range: headerRowIndex,
+        defval: '',
+        raw: false,
+        dateNF: 'yyyy-mm-dd'
+      });
+
+      if (!json || json.length === 0) {
+        alert(`Sheet "${sheetName}" contains headers but no data records.`);
+        return;
+      }
+
+      loadRawDataset(json, fileName);
+    }
+
+    // Process Loaded Dataset
     function loadRawDataset(data, filename) {
       STATE.rawExcelData = data;
       STATE.availableColumns = Object.keys(data[0]);
@@ -1529,7 +1395,7 @@
         container.appendChild(div);
       });
 
-      lucide.createIcons();
+      if (window.lucide) lucide.createIcons();
 
       document.querySelectorAll('.col-toggle-chk').forEach(chk => {
         chk.onchange = (e) => {
@@ -1613,7 +1479,6 @@
       STATE.selectedCustomer = custName;
       document.getElementById('client-firm-name').value = custName || '';
 
-      // Check if client profile already exists in saved quick list
       const matchedProfile = STATE.clientProfiles.find(c => c.name.toLowerCase() === (custName || '').toLowerCase());
       if (matchedProfile) {
         document.getElementById('client-contact-person').value = matchedProfile.contactPerson || '';
@@ -1859,16 +1724,13 @@
       document.getElementById('zero-amount-alert').classList.add('hidden');
     };
 
-    // =========================================================================
-    // FEATURE 1: RENDER LIVE TABLE (MATCHES CHECKED COLUMNS ONLY FOR PDF/PRINT)
-    // =========================================================================
+    // Render Live Table
     function renderDynamicPreviewTable() {
       const thead = document.getElementById('table-dynamic-head');
       const tbody = document.getElementById('table-dynamic-body');
       
       const activeCols = STATE.orderedColumns.filter(c => c.selected);
 
-      // Build THEAD
       let thHTML = `
         <th class="py-2.5 px-2 w-8 text-center no-print">Inc</th>
         <th class="py-2.5 px-2 w-10 text-center font-mono">#</th>
@@ -1984,7 +1846,7 @@
       });
 
       tbody.innerHTML = tbodyHTML;
-      lucide.createIcons();
+      if (window.lucide) lucide.createIcons();
       attachTableEventListeners();
     }
 
@@ -2086,16 +1948,12 @@
       }
     }
 
-    // =========================================================================
-    // FEATURE 3: FINANCIAL & GST TAX ENGINE CALCULATION
-    // =========================================================================
+    // Financial & GST Tax Engine Calculation
     function calculateTotals() {
       const includedRows = (STATE.currentCustomerRows || []).filter(r => r.included);
       
-      // 1. Calculate Base Subtotal (Taxable Value)
       const subtotal = includedRows.reduce((acc, curr) => acc + (curr.computedAmount || 0), 0);
 
-      // 2. Calculate Discount
       const discountType = document.getElementById('calc-discount-type').value;
       const discColSelect = document.getElementById('map-discount-col');
       const activeDiscCol = discColSelect ? discColSelect.value : STATE.mappings.discountCol;
@@ -2126,7 +1984,6 @@
       discountAmount = Math.max(0, Math.min(subtotal, Math.abs(discountAmount)));
       const taxableValue = Math.max(0, subtotal - discountAmount);
 
-      // 3. GST Calculation (Feature 3)
       let cgst = 0, sgst = 0, igst = 0, totalTax = 0;
       const isGstMode = STATE.billingMode === 'gst';
 
@@ -2168,10 +2025,8 @@
       STATE.gst.igst = igst;
       STATE.gst.totalTax = totalTax;
 
-      // 4. Net Total & Deduct Advance
       const advanceVal = Math.max(0, parseFloat(document.getElementById('calc-advance').value) || 0);
       
-      // If RCM is YES, buyer pays tax directly to Govt; supplier invoices taxable value only
       let grossTotal = taxableValue;
       if (isGstMode && STATE.gst.rcm !== 'yes') {
         grossTotal += totalTax;
@@ -2179,7 +2034,6 @@
       
       const afterAdvance = Math.max(0, grossTotal - advanceVal);
 
-      // 5. Round-off Handling
       const roundOffEnabled = document.getElementById('calc-round-off').checked;
       let grandTotal = afterAdvance;
       let roundOffDiff = 0;
@@ -2188,7 +2042,6 @@
         roundOffDiff = grandTotal - afterAdvance;
       }
 
-      // Sync State
       STATE.metadata.subtotal = subtotal;
       STATE.metadata.discount = discountAmount;
       STATE.metadata.discountType = discountType;
@@ -2197,7 +2050,6 @@
       STATE.metadata.roundOff = roundOffDiff;
       STATE.metadata.grandTotal = grandTotal;
 
-      // Update UI displays
       document.getElementById('view-subtotal').innerText = formatInr(subtotal);
 
       const rowDisc = document.getElementById('row-discount');
@@ -2224,7 +2076,6 @@
       document.getElementById('view-roundoff').innerText = (roundOffDiff >= 0 ? '+' : '') + formatInr(roundOffDiff);
       document.getElementById('view-grand-total').innerText = formatInr(grandTotal);
 
-      // Feature 3: Auto-converted Amount in Words
       document.getElementById('view-amount-words').innerText = numberToWordsIndian(grandTotal);
 
       document.getElementById('calc-formula-display').innerText = 
@@ -2256,7 +2107,7 @@
     document.getElementById('calc-advance').oninput = calculateTotals;
     document.getElementById('calc-round-off').onchange = calculateTotals;
 
-    // PRINT / SAVE AS PDF (FEATURE 1: EXACT COLUMN FIT & NO OVERFLOW)
+    // PRINT / SAVE AS PDF
     document.getElementById('btn-print').onclick = () => {
       if (!STATE.selectedCustomer && !STATE.activeClient.name) {
         alert('Please choose or enter a customer before printing.');
@@ -2351,7 +2202,7 @@
         </tr>
       `;
 
-      lucide.createIcons();
+      if (window.lucide) lucide.createIcons();
 
       document.querySelectorAll('.btn-remove-logged').forEach(btn => {
         btn.onclick = () => {
@@ -2532,9 +2383,7 @@
       XLSX.writeFile(wb, `Master_Billing_Summary.xlsx`);
     };
 
-    // =========================================================================
-    // DYNAMIC EXCEL EXPORT (SUPPORTS BOTH FREIGHT & GST TAX FORMATS)
-    // =========================================================================
+    // Dynamic Excel Export
     document.getElementById('btn-export-excel').onclick = () => {
       const clientName = STATE.activeClient.name || STATE.selectedCustomer;
       if (!clientName) {
@@ -2807,14 +2656,13 @@
       pushMergedFullRow(`IFSC Code: ${STATE.biz.ifsc}   |   UPI ID: ${STATE.biz.upi}`, styleMetaCell);
       
       rows.push(Array(lastColIndex + 1).fill({ v: '' }));
-      pushMergedFullRow(viewDeclarationText.innerText, styleMutedCenter);
+      pushMergedFullRow(document.getElementById('view-declaration-text').innerText, styleMutedCenter);
       pushMergedFullRow("Thank you for your business!", { ...styleMutedCenter, font: { bold: true, sz: 10, color: { rgb: '1E293B' } } });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws['!merges'] = merges;
 
-      // Exact tight widths
       const colWidths = [];
       let sNoMax = 4;
       if (String(activeRows.length).length > sNoMax) sNoMax = String(activeRows.length).length;
@@ -2859,7 +2707,7 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Demo Data Loader (Populates tailored freight & GST sample)
+    // Demo Data Loader
     document.getElementById('btn-load-sample').onclick = () => {
       const demoData = [
         {
@@ -2930,10 +2778,9 @@
         }
       ];
 
-      document.getElementById('file-status').innerText = 'sample_logistics_bookings.xlsx';
+      document.getElementById('file-status').innerText = 'sample_logistics_bookings.xlsx (Loaded)';
       loadRawDataset(demoData, 'sample_logistics_bookings.xlsx');
 
-      // Populate demo client details
       document.getElementById('client-firm-name').value = 'Horizon Digital Labs Pvt Ltd';
       document.getElementById('client-contact-person').value = 'Mr. Rajesh Kulkarni';
       document.getElementById('client-phone').value = '+91 98220 12345';
@@ -2942,12 +2789,272 @@
       document.getElementById('client-pan').value = 'AABCH1234F';
       syncClientProfileUI();
 
-      // Configure Discount column mapping
       document.getElementById('calc-discount-type').value = 'column';
       STATE.mappings.discountCol = 'Toll / Rebate';
       document.getElementById('map-discount-col').value = 'Toll / Rebate';
       toggleDiscountModeUI();
       calculateTotals();
+    };
+
+    // Client-side Instant Download of this Complete HTML App
+    document.getElementById('btn-download-app-html').onclick = () => {
+      const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    // UI Helpers
+    const btnModeFreight = document.getElementById('mode-btn-freight');
+    const btnModeGst = document.getElementById('mode-btn-gst');
+    const headerFormatBadge = document.getElementById('header-format-badge');
+    const gstSettingsPanel = document.getElementById('gst-settings-panel');
+    const viewDocBadge = document.getElementById('view-doc-badge');
+    const viewGstMetaBox = document.getElementById('view-gst-meta-box');
+    const viewSupplierGstinRow = document.getElementById('view-supplier-gstin-row');
+    const lblViewInvNo = document.getElementById('lbl-view-inv-no');
+    const lblSumCol = document.getElementById('lbl-sum-col');
+    const lblViewSubtotal = document.getElementById('lbl-view-subtotal');
+    const viewDeclarationText = document.getElementById('view-declaration-text');
+    const viewComputerGenNote = document.getElementById('view-computer-gen-note');
+
+    function switchBillingMode(mode) {
+      STATE.billingMode = mode;
+      if (mode === 'freight') {
+        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
+        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        headerFormatBadge.innerText = 'Freight Summary';
+        headerFormatBadge.className = 'text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200';
+
+        gstSettingsPanel.classList.add('hidden');
+        viewGstMetaBox.classList.add('hidden');
+        viewSupplierGstinRow.classList.add('hidden');
+
+        viewDocBadge.innerText = 'FREIGHT BILL / TRIP SUMMARY';
+        lblViewInvNo.innerText = 'Bill / Summary No.';
+        lblSumCol.innerText = 'Column to Sum for Subtotal / Freight';
+        lblViewSubtotal.innerText = 'Total Freight Charges:';
+        viewDeclarationText.innerText = '* Freight Summary Declaration: Computer-generated freight trip summary issued without Goods and Services Tax liability.';
+        viewComputerGenNote.innerText = 'Computer-generated Freight Bill. No physical signature required.';
+      } else {
+        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
+        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        headerFormatBadge.innerText = 'GST Tax Invoice';
+        headerFormatBadge.className = 'text-[10px] font-semibold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200';
+
+        gstSettingsPanel.classList.remove('hidden');
+        viewGstMetaBox.classList.remove('hidden');
+        viewSupplierGstinRow.classList.remove('hidden');
+
+        viewDocBadge.innerText = 'TAX INVOICE';
+        lblViewInvNo.innerText = 'Tax Invoice No.';
+        lblSumCol.innerText = 'Column to Sum for Taxable Value';
+        lblViewSubtotal.innerText = 'Taxable Value:';
+        viewDeclarationText.innerText = '* GST Declaration: Certified that particulars given above are true and correct and tax payable is computed under GST law.';
+        viewComputerGenNote.innerText = 'Computer-generated GST Tax Invoice. No physical signature required.';
+      }
+      renderDynamicPreviewTable();
+      calculateTotals();
+    }
+
+    btnModeFreight.onclick = () => switchBillingMode('freight');
+    btnModeGst.onclick = () => switchBillingMode('gst');
+
+    document.getElementById('gst-place-of-supply').oninput = (e) => {
+      STATE.gst.placeOfSupply = e.target.value;
+      document.getElementById('view-place-of-supply').innerText = e.target.value || 'N/A';
+    };
+    document.getElementById('gst-state-code').oninput = (e) => {
+      STATE.gst.stateCode = e.target.value;
+    };
+    document.getElementById('gst-tax-type').onchange = (e) => {
+      STATE.gst.taxType = e.target.value;
+      calculateTotals();
+    };
+    document.getElementById('gst-rate-select').onchange = (e) => {
+      STATE.gst.rate = parseFloat(e.target.value) || 0;
+      calculateTotals();
+    };
+    document.getElementById('gst-rcm-toggle').onchange = (e) => {
+      STATE.gst.rcm = e.target.value;
+      document.getElementById('view-rcm-status').innerText = e.target.value.toUpperCase();
+      calculateTotals();
+    };
+    document.getElementById('supplier-gstin').oninput = (e) => {
+      STATE.biz.gstin = e.target.value.toUpperCase();
+      document.getElementById('view-supplier-gstin').innerText = STATE.biz.gstin;
+      saveSettings();
+    };
+
+    const btnOrientPortrait = document.getElementById('btn-orient-portrait');
+    const btnOrientLandscape = document.getElementById('btn-orient-landscape');
+    const printStyleSheet = document.getElementById('print-orientation-style');
+
+    function setPageOrientation(orientation) {
+      STATE.printOrientation = orientation;
+      if (orientation === 'landscape') {
+        btnOrientLandscape.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
+        btnOrientPortrait.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
+        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*portrait;/g, 'size: A4 landscape;');
+        document.getElementById('printable-invoice').style.maxWidth = '1050px';
+      } else {
+        btnOrientPortrait.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
+        btnOrientLandscape.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
+        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*landscape;/g, 'size: A4 portrait;');
+        document.getElementById('printable-invoice').style.maxWidth = '850px';
+      }
+    }
+
+    btnOrientPortrait.onclick = () => setPageOrientation('portrait');
+    btnOrientLandscape.onclick = () => setPageOrientation('landscape');
+
+    const toggleClientCard = document.getElementById('toggle-client-card');
+    const clientCardBody = document.getElementById('client-card-body');
+    const clientCardChevron = document.getElementById('client-card-chevron');
+    const clientFilledBadge = document.getElementById('client-filled-badge');
+    let isClientCardExpanded = true;
+
+    toggleClientCard.onclick = () => {
+      isClientCardExpanded = !isClientCardExpanded;
+      if (isClientCardExpanded) {
+        clientCardBody.classList.remove('hidden');
+        clientCardChevron.classList.remove('rotate-180');
+      } else {
+        clientCardBody.classList.add('hidden');
+        clientCardChevron.classList.add('rotate-180');
+      }
+    };
+
+    function refreshClientQuickList() {
+      const select = document.getElementById('quick-client-select');
+      select.innerHTML = '<option value="">-- No Saved Client Selected --</option>' + 
+        STATE.clientProfiles.map((c, i) => `<option value="${i}">${escapeHTML(c.name)} (${c.gstin || c.phone || 'Saved'})</option>`).join('');
+    }
+
+    function syncClientProfileUI() {
+      const name = document.getElementById('client-firm-name').value.trim();
+      const person = document.getElementById('client-contact-person').value.trim();
+      const phone = document.getElementById('client-phone').value.trim();
+      const address = document.getElementById('client-address').value.trim();
+      const gstin = document.getElementById('client-gstin').value.trim();
+      const pan = document.getElementById('client-pan').value.trim();
+
+      STATE.activeClient = { name, contactPerson: person, phone, address, gstin, pan };
+
+      const viewName = document.getElementById('view-customer-name');
+      const viewContact = document.getElementById('view-client-contact');
+      const viewAddress = document.getElementById('view-client-address');
+      const viewTaxIds = document.getElementById('view-client-tax-ids');
+      const viewGstin = document.getElementById('view-client-gstin');
+      const viewPan = document.getElementById('view-client-pan');
+
+      viewName.innerText = name || STATE.selectedCustomer || 'No Customer Selected';
+
+      let hasExtra = false;
+
+      if (person || phone) {
+        hasExtra = true;
+        viewContact.innerText = [person ? `Attn: ${person}` : '', phone ? `Ph: ${phone}` : ''].filter(Boolean).join(' | ');
+        viewContact.classList.remove('hidden');
+      } else {
+        viewContact.classList.add('hidden');
+      }
+
+      if (address) {
+        hasExtra = true;
+        viewAddress.innerText = address;
+        viewAddress.classList.remove('hidden');
+      } else {
+        viewAddress.classList.add('hidden');
+      }
+
+      if (gstin || pan) {
+        hasExtra = true;
+        viewTaxIds.classList.remove('hidden');
+        if (gstin) {
+          viewGstin.innerText = `GSTIN: ${gstin.toUpperCase()}`;
+          viewGstin.classList.remove('hidden');
+        } else {
+          viewGstin.classList.add('hidden');
+        }
+        if (pan) {
+          viewPan.innerText = `PAN: ${pan.toUpperCase()}`;
+          viewPan.classList.remove('hidden');
+        } else {
+          viewPan.classList.add('hidden');
+        }
+      } else {
+        viewTaxIds.classList.add('hidden');
+      }
+
+      if (hasExtra) {
+        clientFilledBadge.classList.remove('hidden');
+      } else {
+        clientFilledBadge.classList.add('hidden');
+      }
+    }
+
+    ['client-firm-name', 'client-contact-person', 'client-phone', 'client-address', 'client-gstin', 'client-pan'].forEach(id => {
+      document.getElementById(id).addEventListener('input', syncClientProfileUI);
+    });
+
+    document.getElementById('btn-save-current-client').onclick = () => {
+      const name = document.getElementById('client-firm-name').value.trim() || STATE.selectedCustomer;
+      if (!name) {
+        alert('Please enter a Client / Customer name first.');
+        return;
+      }
+
+      const newProfile = {
+        name: name,
+        contactPerson: document.getElementById('client-contact-person').value.trim(),
+        phone: document.getElementById('client-phone').value.trim(),
+        address: document.getElementById('client-address').value.trim(),
+        gstin: document.getElementById('client-gstin').value.trim(),
+        pan: document.getElementById('client-pan').value.trim()
+      };
+
+      const existingIdx = STATE.clientProfiles.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+      if (existingIdx >= 0) {
+        STATE.clientProfiles[existingIdx] = newProfile;
+      } else {
+        STATE.clientProfiles.push(newProfile);
+      }
+
+      saveClientProfilesToStorage();
+      refreshClientQuickList();
+      alert(`Client profile for "${name}" saved to Quick List!`);
+    };
+
+    document.getElementById('quick-client-select').onchange = (e) => {
+      const idx = e.target.value;
+      if (idx === '') return;
+      const c = STATE.clientProfiles[parseInt(idx)];
+      if (!c) return;
+
+      document.getElementById('client-firm-name').value = c.name || '';
+      document.getElementById('client-contact-person').value = c.contactPerson || '';
+      document.getElementById('client-phone').value = c.phone || '';
+      document.getElementById('client-address').value = c.address || '';
+      document.getElementById('client-gstin').value = c.gstin || '';
+      document.getElementById('client-pan').value = c.pan || '';
+      syncClientProfileUI();
+    };
+
+    document.getElementById('btn-clear-client').onclick = () => {
+      document.getElementById('client-contact-person').value = '';
+      document.getElementById('client-phone').value = '';
+      document.getElementById('client-address').value = '';
+      document.getElementById('client-gstin').value = '';
+      document.getElementById('client-pan').value = '';
+      document.getElementById('quick-client-select').value = '';
+      syncClientProfileUI();
     };
 
     // Initialize on page load
@@ -2959,6 +3066,7 @@
       toggleDiscountModeUI();
       switchBillingMode('freight');
       setPageOrientation('portrait');
+      if (window.lucide) lucide.createIcons();
     });
   </script>
 </body>
