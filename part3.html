@@ -1,0 +1,1593 @@
+    // FILE PICKER
+    const fileInput = document.getElementById('excel-file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const btnBrowse = document.getElementById('btn-browse-file');
+
+    btnBrowse.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function() {
+      if (this.files && this.files.length > 0) {
+        handleFileSelection(this.files[0]);
+        this.value = '';
+      }
+    });
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      window.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+
+    dropZone.addEventListener('dragenter', () => dropZone.classList.add('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/70'));
+    dropZone.addEventListener('drop', (e) => {
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/70');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelection(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFileSelection(file) {
+      if (!file) return;
+      document.getElementById('file-status').innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      parseUploadedFile(file);
+    }
+
+    function parseUploadedFile(file) {
+      if (!file) return;
+      if (typeof XLSX === 'undefined') {
+        alert('Excel parsing engine is loading. Please check connection and try again.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true, cellNF: true });
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+            alert('No readable sheets found in this file.');
+            return;
+          }
+          STATE.workbook = workbook;
+          setupSheetSelector(workbook, file.name);
+        } catch (err) {
+          try {
+            const binaryReader = new FileReader();
+            binaryReader.onload = function(be) {
+              const workbook = XLSX.read(be.target.result, { type: 'binary', cellDates: true });
+              STATE.workbook = workbook;
+              setupSheetSelector(workbook, file.name);
+            };
+            binaryReader.readAsBinaryString(file);
+          } catch (err2) {
+            alert('Could not parse this Excel file.');
+          }
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function setupSheetSelector(workbook, fileName) {
+      const sheetContainer = document.getElementById('sheet-selector-container');
+      const sheetSelect = document.getElementById('sheet-select');
+      
+      if (workbook.SheetNames.length > 1) {
+        sheetContainer.classList.remove('hidden');
+        sheetSelect.innerHTML = workbook.SheetNames.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
+        sheetSelect.onchange = (e) => loadSheetData(workbook, e.target.value, fileName);
+      } else {
+        sheetContainer.classList.add('hidden');
+      }
+
+      loadSheetData(workbook, workbook.SheetNames[0], fileName);
+    }
+
+    function loadSheetData(workbook, sheetName, fileName) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet || !sheet['!ref']) {
+        alert(`Worksheet "${sheetName}" is empty.`);
+        return;
+      }
+
+      const rawMatrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (!rawMatrix || rawMatrix.length === 0) {
+        alert(`No data rows found in worksheet "${sheetName}".`);
+        return;
+      }
+
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(rawMatrix.length, 15); i++) {
+        const row = rawMatrix[i];
+        if (Array.isArray(row)) {
+          const filled = row.filter(cell => String(cell).trim() !== '');
+          if (filled.length >= 2) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+      }
+
+      const json = XLSX.utils.sheet_to_json(sheet, {
+        range: headerRowIndex,
+        defval: '',
+        raw: false,
+        dateNF: 'yyyy-mm-dd'
+      });
+
+      if (!json || json.length === 0) {
+        alert(`Sheet "${sheetName}" contains headers but no records.`);
+        return;
+      }
+
+      // NORMALIZE KEYS TO STRIP UNWANTED SPACES
+      const normalizedJson = json.map(row => {
+        const clean = {};
+        Object.keys(row).forEach(k => {
+          clean[String(k).trim()] = row[k];
+        });
+        return clean;
+      });
+
+      loadRawDataset(normalizedJson, fileName);
+    }
+
+    function loadRawDataset(data, filename) {
+      STATE.rawExcelData = data;
+      STATE.metadata.periodFrom = '';
+      STATE.metadata.periodTo = '';
+      STATE.availableColumns = Object.keys(data[0]);
+
+      STATE.orderedColumns = STATE.availableColumns.map(col => ({
+        name: col,
+        selected: true
+      }));
+
+      autoDetectColumns();
+
+      const idCol = STATE.availableColumns.find(c => /lr|docket|booking|trip|id|ticket|no|ref/i.test(c));
+      if (idCol) {
+        STATE.duplicateColumns = [idCol];
+      } else {
+        STATE.duplicateColumns = STATE.availableColumns.slice(0, 2);
+      }
+
+      document.getElementById('step-customer-card').classList.remove('hidden');
+      document.getElementById('step-client-card').classList.remove('hidden');
+      document.getElementById('step-columns-card').classList.remove('hidden');
+      document.getElementById('step-meta-card').classList.remove('hidden');
+
+      populateDropdowns();
+      renderColumnSelectorList();
+      extractUniqueCustomers();
+    }
+
+    function autoDetectColumns() {
+      const cols = STATE.availableColumns;
+      const patterns = {
+        customer: /party|customer|client|consignee|company|name/i,
+        sum: /freight|total|amount|net|fare|grand|price|charge|subtotal/i,
+        discount: /toll|rebate|discount|waiver|concession|less|deduction|promo|allowance/i,
+        rate: /rate|price|unit|cost/i,
+        qty: /weight|packages|qty|quantity|trips|kms/i,
+        date: /trip\s*date|date|booking\s*date|day/i
+      };
+
+      STATE.mappings.customerCol = cols.find(c => patterns.customer.test(c)) || cols[0];
+      STATE.mappings.sumCol = cols.find(c => patterns.sum.test(c)) || (cols.length > 1 ? cols[cols.length - 1] : cols[0]);
+      STATE.mappings.discountCol = cols.find(c => patterns.discount.test(c)) || '';
+      STATE.mappings.rateCol = cols.find(c => patterns.rate.test(c)) || '';
+      STATE.mappings.qtyCol = cols.find(c => patterns.qty.test(c)) || '';
+      STATE.mappings.dateCol = cols.find(c => patterns.date.test(c)) || '';
+    }
+
+    function populateDropdowns() {
+      const custSelect = document.getElementById('map-customer-col');
+      custSelect.innerHTML = STATE.availableColumns.map(col => 
+        `<option value="${escapeHTML(col)}" ${col === STATE.mappings.customerCol ? 'selected' : ''}>${escapeHTML(col)}</option>`
+      ).join('');
+
+      // POPULATE WANTED SUM COLUMN
+      const sumSelect = document.getElementById('map-sum-col');
+      let sumOpts = `<option value="__CALC__" ${STATE.mappings.sumCol === '__CALC__' ? 'selected' : ''}>[Auto Multiply: Rate × Weight/Qty]</option>`;
+      sumOpts += STATE.availableColumns.map(col => 
+        `<option value="${escapeHTML(col)}" ${col === STATE.mappings.sumCol ? 'selected' : ''}>${escapeHTML(col)} (Sum of this Column)</option>`
+      ).join('');
+      sumSelect.innerHTML = sumOpts;
+      if (STATE.mappings.sumCol) sumSelect.value = STATE.mappings.sumCol;
+
+      const discSelect = document.getElementById('map-discount-col');
+      let discOpts = '<option value="">-- Choose Column to Deduct (e.g. Toll/Rebate) --</option>';
+      discOpts += STATE.availableColumns.map(col => 
+        `<option value="${escapeHTML(col)}" ${col === STATE.mappings.discountCol ? 'selected' : ''}>${escapeHTML(col)} (Deduct Sum)</option>`
+      ).join('');
+      discSelect.innerHTML = discOpts;
+      if (STATE.mappings.discountCol) discSelect.value = STATE.mappings.discountCol;
+
+      const makeOpts = (selected) => {
+        return '<option value="">-- None --</option>' + 
+          STATE.availableColumns.map(col => 
+            `<option value="${escapeHTML(col)}" ${col === selected ? 'selected' : ''}>${escapeHTML(col)}</option>`
+          ).join('');
+      };
+      document.getElementById('map-rate-col').innerHTML = makeOpts(STATE.mappings.rateCol);
+      document.getElementById('map-qty-col').innerHTML = makeOpts(STATE.mappings.qtyCol);
+    }
+
+    document.getElementById('map-customer-col').onchange = (e) => {
+      STATE.mappings.customerCol = e.target.value;
+      extractUniqueCustomers();
+    };
+
+    // WHEN THE WANTED COLUMN TO SUM CHANGES: REFRESH AND RECALCULATE IMMEDIATELY
+    document.getElementById('map-sum-col').onchange = (e) => {
+      STATE.mappings.sumCol = e.target.value;
+      refreshCustomerRowsAndTable();
+    };
+
+    document.getElementById('map-discount-col').onchange = (e) => {
+      STATE.mappings.discountCol = e.target.value;
+      calculateTotals();
+    };
+
+    document.getElementById('map-rate-col').onchange = (e) => {
+      STATE.mappings.rateCol = e.target.value;
+      refreshCustomerRowsAndTable();
+    };
+
+    document.getElementById('map-qty-col').onchange = (e) => {
+      STATE.mappings.qtyCol = e.target.value;
+      refreshCustomerRowsAndTable();
+    };
+
+    function renderColumnSelectorList() {
+      const container = document.getElementById('columns-container');
+      container.innerHTML = '';
+
+      STATE.orderedColumns.forEach((colObj, index) => {
+        const div = document.createElement('div');
+        div.className = `flex items-center justify-between p-2 rounded-lg border text-xs transition-all ${
+          colObj.selected ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-100/60 border-slate-200/50 text-slate-400'
+        }`;
+
+        let badge = '';
+        if (colObj.name === STATE.mappings.customerCol) badge = '<span class="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded font-semibold ml-1.5">Party</span>';
+        else if (colObj.name === STATE.mappings.sumCol) badge = '<span class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-semibold ml-1.5">Freight Sum</span>';
+        else if (colObj.name === STATE.mappings.discountCol) badge = '<span class="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-semibold ml-1.5">Deduction</span>';
+
+        div.innerHTML = `
+          <label class="flex items-center gap-2 cursor-pointer flex-1 truncate select-none">
+            <input type="checkbox" data-index="${index}" class="col-toggle-chk rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer" ${colObj.selected ? 'checked' : ''}>
+            <span class="font-medium truncate ${colObj.selected ? 'text-slate-800' : 'text-slate-400'}">${escapeHTML(colObj.name)}</span>
+            ${badge}
+          </label>
+          <div class="flex items-center gap-1">
+            <button data-index="${index}" class="btn-col-up p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20" ${index === 0 ? 'disabled' : ''} title="Move Left / Up">
+              <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+            </button>
+            <button data-index="${index}" class="btn-col-down p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20" ${index === STATE.orderedColumns.length - 1 ? 'disabled' : ''} title="Move Right / Down">
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      if (window.lucide) lucide.createIcons();
+
+      document.querySelectorAll('.col-toggle-chk').forEach(chk => {
+        chk.onchange = (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          STATE.orderedColumns[idx].selected = e.target.checked;
+          renderColumnSelectorList();
+          renderDynamicPreviewTable();
+        };
+      });
+
+      document.querySelectorAll('.btn-col-up').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.dataset.index);
+          if (idx > 0) {
+            const temp = STATE.orderedColumns[idx];
+            STATE.orderedColumns[idx] = STATE.orderedColumns[idx - 1];
+            STATE.orderedColumns[idx - 1] = temp;
+            renderColumnSelectorList();
+            renderDynamicPreviewTable();
+          }
+        };
+      });
+
+      document.querySelectorAll('.btn-col-down').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.dataset.index);
+          if (idx < STATE.orderedColumns.length - 1) {
+            const temp = STATE.orderedColumns[idx];
+            STATE.orderedColumns[idx] = STATE.orderedColumns[idx + 1];
+            STATE.orderedColumns[idx + 1] = temp;
+            renderColumnSelectorList();
+            renderDynamicPreviewTable();
+          }
+        };
+      });
+    }
+
+    document.getElementById('btn-select-all-cols').onclick = () => {
+      STATE.orderedColumns.forEach(c => c.selected = true);
+      renderColumnSelectorList();
+      renderDynamicPreviewTable();
+    };
+
+    document.getElementById('btn-deselect-all-cols').onclick = () => {
+      STATE.orderedColumns.forEach(c => c.selected = false);
+      renderColumnSelectorList();
+      renderDynamicPreviewTable();
+    };
+
+    // EXTRACT PARTIES WITH DEFAULT: ALL ENTRIES
+    function extractUniqueCustomers() {
+      const custCol = STATE.mappings.customerCol;
+      const set = new Set();
+      
+      STATE.rawExcelData.forEach(row => {
+        const val = (getCleanRowValue(row, custCol) || '').toString().trim();
+        if (val) set.add(val);
+      });
+
+      STATE.customers = Array.from(set).sort();
+      document.getElementById('customer-count-badge').innerText = `${STATE.customers.length} found`;
+
+      const sel = document.getElementById('customer-select');
+      
+      // ALWAYS INCLUDE "ALL ENTRIES IN FILE" OPTION AND DEFAULT TO IT
+      let opts = `<option value="__ALL__">-- All Entries in File (${STATE.rawExcelData.length} records) --</option>`;
+      opts += STATE.customers.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+      sel.innerHTML = opts;
+
+      sel.value = '__ALL__';
+      handleCustomerSelect('__ALL__');
+    }
+
+    document.getElementById('customer-select').onchange = (e) => {
+      handleCustomerSelect(e.target.value);
+    };
+
+    function handleCustomerSelect(custName) {
+      STATE.selectedCustomer = custName || '__ALL__';
+      
+      if (custName && custName !== '__ALL__') {
+        document.getElementById('client-firm-name').value = custName;
+        const matchedProfile = STATE.clientProfiles.find(c => c.name.toLowerCase() === custName.toLowerCase());
+        if (matchedProfile) {
+          document.getElementById('client-contact-person').value = matchedProfile.contactPerson || '';
+          document.getElementById('client-phone').value = matchedProfile.phone || '';
+          document.getElementById('client-address').value = matchedProfile.address || '';
+          document.getElementById('client-gstin').value = matchedProfile.gstin || '';
+          document.getElementById('client-pan').value = matchedProfile.pan || '';
+        }
+      }
+
+      syncClientProfileUI();
+      refreshCustomerRowsAndTable();
+    }
+
+    function autoDetectDatesFromCustomerRows() {
+      let minDate = null, maxDate = null;
+      STATE.currentCustomerRows.forEach(r => {
+        Object.keys(r.data).forEach(key => {
+          if (/date|day/i.test(key)) {
+            const d = new Date(r.data[key]);
+            if (!isNaN(d.getTime())) {
+              if (!minDate || d < minDate) minDate = d;
+              if (!maxDate || d > maxDate) maxDate = d;
+            }
+          }
+        });
+      });
+
+      if (minDate && maxDate) {
+        STATE.metadata.periodFrom = minDate.toISOString().split('T')[0];
+        STATE.metadata.periodTo = maxDate.toISOString().split('T')[0];
+      } else {
+        STATE.metadata.periodFrom = STATE.metadata.invoiceDate;
+        STATE.metadata.periodTo = STATE.metadata.invoiceDate;
+      }
+      document.getElementById('meta-period-from').value = STATE.metadata.periodFrom;
+      document.getElementById('meta-period-to').value = STATE.metadata.periodTo;
+      document.getElementById('view-freight-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+      document.getElementById('view-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+    }
+
+    document.getElementById('meta-period-from').onchange = (e) => {
+      STATE.metadata.periodFrom = e.target.value;
+      document.getElementById('lock-period-dates').checked = true;
+      document.getElementById('view-freight-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+      document.getElementById('view-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+    };
+
+    document.getElementById('meta-period-to').onchange = (e) => {
+      STATE.metadata.periodTo = e.target.value;
+      document.getElementById('lock-period-dates').checked = true;
+      document.getElementById('view-freight-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+      document.getElementById('view-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+    };
+
+    document.getElementById('btn-autofill-dates').onclick = () => autoDetectDatesFromCustomerRows();
+
+    // REFRESH ROWS WITH CLEAN NORMALIZED PARSING
+    function refreshCustomerRowsAndTable() {
+      let matched = [];
+      if (!STATE.selectedCustomer || STATE.selectedCustomer === '__ALL__') {
+        matched = STATE.rawExcelData;
+      } else {
+        const custCol = STATE.mappings.customerCol;
+        matched = STATE.rawExcelData.filter(row => 
+          (getCleanRowValue(row, custCol) || '').toString().trim().toLowerCase() === STATE.selectedCustomer.toLowerCase()
+        );
+      }
+
+      const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const rateCol = STATE.mappings.rateCol;
+      const qtyCol = STATE.mappings.qtyCol;
+
+      STATE.currentCustomerRows = matched.map((rawRow, idx) => {
+        const rowData = { ...rawRow };
+        let computedAmount = 0;
+
+        if (sumCol && sumCol !== '__CALC__') {
+          computedAmount = parseCleanNumber(getCleanRowValue(rowData, sumCol));
+        } else if (rateCol && qtyCol) {
+          const q = parseCleanNumber(getCleanRowValue(rowData, qtyCol)) || 1;
+          const r = parseCleanNumber(getCleanRowValue(rowData, rateCol)) || 0;
+          computedAmount = q * r;
+        }
+
+        return {
+          id: 'row_' + Date.now() + '_' + idx,
+          included: true,
+          computedAmount: computedAmount,
+          isDuplicate: false,
+          duplicateIndex: 0,
+          data: rowData
+        };
+      });
+
+      const isPeriodLocked = document.getElementById('lock-period-dates').checked;
+      if (!isPeriodLocked || !STATE.metadata.periodFrom || !STATE.metadata.periodTo) {
+        autoDetectDatesFromCustomerRows();
+      } else {
+        document.getElementById('view-freight-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+        document.getElementById('view-period').innerText = `${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`;
+      }
+
+      detectZeroAmountEntries();
+      detectDuplicateEntries();
+      renderDynamicPreviewTable();
+      calculateTotals();
+    }
+
+    function detectDuplicateEntries() {
+      const dupAlert = document.getElementById('duplicate-alert');
+      const dupCountText = document.getElementById('dup-count-text');
+      const dupColsText = document.getElementById('dup-cols-text');
+
+      if (!STATE.duplicateColumns || STATE.duplicateColumns.length === 0) {
+        STATE.currentCustomerRows.forEach(r => {
+          r.isDuplicate = false;
+          r.duplicateIndex = 0;
+        });
+        dupAlert.classList.add('hidden');
+        return;
+      }
+
+      const keyMap = {};
+      let totalDuplicateRows = 0;
+
+      STATE.currentCustomerRows.forEach(row => {
+        const compositeKey = STATE.duplicateColumns
+          .map(col => String(getCleanRowValue(row.data, col) ?? '').trim().toLowerCase())
+          .join('__||__');
+
+        if (!keyMap[compositeKey]) keyMap[compositeKey] = [];
+        keyMap[compositeKey].push(row);
+      });
+
+      Object.keys(keyMap).forEach(key => {
+        const rows = keyMap[key];
+        if (rows.length > 1) {
+          totalDuplicateRows += rows.length;
+          rows.forEach((r, idx) => {
+            r.isDuplicate = true;
+            r.duplicateIndex = idx;
+          });
+        } else {
+          rows[0].isDuplicate = false;
+          rows[0].duplicateIndex = 0;
+        }
+      });
+
+      if (totalDuplicateRows > 0) {
+        dupAlert.classList.remove('hidden');
+        dupCountText.innerText = `${totalDuplicateRows} duplicate entries (${totalDuplicateRows - Object.values(keyMap).filter(g => g.length > 1).length} copies)`;
+        dupColsText.innerText = STATE.duplicateColumns.join(', ');
+      } else {
+        dupAlert.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('btn-exclude-dup-copies').onclick = () => {
+      STATE.currentCustomerRows.forEach(r => {
+        if (r.isDuplicate && r.duplicateIndex > 0) r.included = false;
+      });
+      renderDynamicPreviewTable();
+      calculateTotals();
+    };
+
+    const dupConfigModal = document.getElementById('modal-dup-config');
+    document.getElementById('btn-open-dup-config').onclick = () => {
+      renderDuplicateConfigChecklist();
+      dupConfigModal.classList.remove('hidden');
+    };
+    document.getElementById('btn-close-dup-config').onclick = () => dupConfigModal.classList.add('hidden');
+
+    function renderDuplicateConfigChecklist() {
+      const list = document.getElementById('dup-cols-checklist');
+      list.innerHTML = '';
+      STATE.availableColumns.forEach(col => {
+        const isChecked = STATE.duplicateColumns.includes(col);
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer text-xs hover:bg-slate-50 transition-colors';
+        label.innerHTML = `
+          <input type="checkbox" value="${escapeHTML(col)}" class="dup-col-chk w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" ${isChecked ? 'checked' : ''}>
+          <span class="font-medium text-slate-800">${escapeHTML(col)}</span>
+        `;
+        list.appendChild(label);
+      });
+    }
+
+    document.getElementById('btn-apply-dup-config').onclick = () => {
+      const checkedBoxes = Array.from(document.querySelectorAll('.dup-col-chk:checked')).map(cb => cb.value);
+      if (checkedBoxes.length === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+      STATE.duplicateColumns = checkedBoxes;
+      detectDuplicateEntries();
+      renderDynamicPreviewTable();
+      dupConfigModal.classList.add('hidden');
+    };
+
+    document.getElementById('btn-reset-dup-cols').onclick = () => {
+      const idCol = STATE.availableColumns.find(c => /lr|docket|booking|trip|id|no/i.test(c)) || STATE.availableColumns[0];
+      STATE.duplicateColumns = [idCol];
+      renderDuplicateConfigChecklist();
+    };
+
+    function detectZeroAmountEntries() {
+      const zeroAlert = document.getElementById('zero-amount-alert');
+      const zeroCountText = document.getElementById('zero-count-text');
+      const zeroRows = STATE.currentCustomerRows.filter(r => r.computedAmount === 0);
+      
+      if (zeroRows.length > 0) {
+        zeroAlert.classList.remove('hidden');
+        zeroCountText.innerText = `${zeroRows.length} entry${zeroRows.length > 1 ? 's' : ''}`;
+      } else {
+        zeroAlert.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('btn-exclude-zero-rows').onclick = () => {
+      STATE.currentCustomerRows.forEach(r => {
+        if (r.computedAmount === 0) r.included = false;
+      });
+      renderDynamicPreviewTable();
+      calculateTotals();
+      document.getElementById('zero-amount-alert').classList.add('hidden');
+    };
+
+    // RENDER TABLE: DIRECT DOM CELLS (NO COMPETING HIDDEN SPANS)
+    function renderDynamicPreviewTable() {
+      const thead = document.getElementById('table-dynamic-head');
+      const tbody = document.getElementById('table-dynamic-body');
+      const activeCols = STATE.orderedColumns.filter(c => c.selected);
+
+      let thHTML = `
+        <th class="py-2 px-1.5 w-8 text-center no-print">Inc</th>
+        <th class="py-2 px-1.5 w-9 text-center font-mono">#</th>
+      `;
+
+      if (activeCols.length === 0) {
+        thHTML += `<th class="py-2 px-2 text-rose-500 italic">No columns selected! Check Step 3.</th>`;
+      } else {
+        const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+        activeCols.forEach(col => {
+          const isSumCol = col.name === sumCol;
+          const isDiscCol = col.name === (document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol);
+          const isNumeric = isSumCol || isDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
+          
+          let colTag = '';
+          let bgClass = '';
+          if (isSumCol) {
+            colTag = STATE.billingMode === 'gst' ? ' (Taxable)' : ' (Freight)';
+            bgClass = 'text-amber-900 font-bold bg-amber-100/60';
+          } else if (isDiscCol) {
+            colTag = ' (Deduction)';
+            bgClass = 'text-emerald-900 font-bold bg-emerald-100/60';
+          }
+
+          thHTML += `
+            <th class="py-2 px-2 ${isNumeric ? 'text-right' : 'text-left'} ${bgClass}">
+              ${escapeHTML(col.name)}${colTag}
+            </th>
+          `;
+        });
+      }
+
+      thHTML += `<th class="py-2 px-1.5 w-7 no-print"></th>`;
+      thead.innerHTML = thHTML;
+
+      const sumColLabel = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      document.getElementById('view-sum-col-name').innerText = sumColLabel === '__CALC__' ? 'Rate × Weight' : (sumColLabel || 'Freight');
+
+      if (!STATE.currentCustomerRows || STATE.currentCustomerRows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${activeCols.length + 3}" class="text-center py-10 text-slate-400 italic">
+              No entries available. Select a party or click "Demo Data".
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let tbodyHTML = '';
+      const activeSumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const activeDiscCol = document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol;
+
+      let sn = 0;
+      STATE.currentCustomerRows.forEach((row, rIdx) => {
+        const isZeroAmountRow = row.computedAmount === 0;
+        const isDuplicateCopy = row.isDuplicate && row.duplicateIndex > 0;
+        const isDuplicateOriginal = row.isDuplicate && row.duplicateIndex === 0;
+
+        let rowHighlight = '';
+        if (!row.included) {
+          rowHighlight = 'opacity-35 bg-slate-50 no-print';
+        } else if (isDuplicateCopy) {
+          rowHighlight = 'bg-amber-100/40 border-l-4 border-l-amber-500';
+        } else if (isZeroAmountRow) {
+          rowHighlight = 'bg-rose-50/40';
+        }
+
+        tbodyHTML += `
+          <tr class="border-b border-slate-200 hover:bg-slate-50/70 transition-colors ${rowHighlight}">
+            <td class="py-1 px-1.5 text-center no-print">
+              <input type="checkbox" data-id="${row.id}" class="row-inc-chk w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" ${row.included ? 'checked' : ''}>
+            </td>
+            <td class="py-1 px-1.5 text-center font-mono text-slate-500 text-[10px] whitespace-nowrap">
+              ${row.included ? ++sn : '–'}
+              ${isDuplicateCopy ? '<span class="ml-0.5 text-[8.5px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold uppercase no-print">Dup</span>' : ''}
+              ${isDuplicateOriginal ? '<span class="ml-0.5 text-[8.5px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-bold uppercase no-print">Orig</span>' : ''}
+            </td>
+        `;
+
+        if (activeCols.length === 0) {
+          tbodyHTML += `<td class="py-1 px-2 text-slate-400 italic">Columns hidden</td>`;
+        } else {
+          activeCols.forEach(col => {
+            const rawVal = getCleanRowValue(row.data, col.name);
+            const isSumCol = col.name === activeSumCol;
+            const isDiscCol = col.name === activeDiscCol;
+            const isNumeric = isSumCol || isDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
+
+            let cellBg = '';
+            if (isSumCol) {
+              if (row.computedAmount === 0) {
+                cellBg = 'bg-rose-100 font-bold text-rose-800 border border-rose-300 rounded px-1';
+              } else {
+                cellBg = 'bg-amber-50/70 font-semibold text-slate-900';
+              }
+            } else if (isDiscCol) {
+              cellBg = 'bg-emerald-50/70 font-semibold text-emerald-800';
+            }
+
+            tbodyHTML += `
+              <td class="py-1 px-2 ${isNumeric ? 'text-right font-mono whitespace-nowrap num-val' : 'text-left'}">
+                <div contenteditable="true" data-id="${row.id}" data-col="${escapeHTML(col.name)}" 
+                  class="cell-editable ${cellBg} px-1 py-0.5 rounded outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500">
+                  ${escapeHTML(String(rawVal))}
+                </div>
+              </td>
+            `;
+          });
+        }
+
+        tbodyHTML += `
+            <td class="py-1 px-1 text-center no-print">
+              <button data-id="${row.id}" class="btn-del-row text-slate-300 hover:text-rose-500 transition-colors">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = tbodyHTML;
+      if (window.lucide) lucide.createIcons();
+      attachTableEventListeners();
+    }
+
+    function attachTableEventListeners() {
+      document.querySelectorAll('.row-inc-chk').forEach(chk => {
+        chk.onchange = (e) => {
+          const id = e.target.dataset.id;
+          const row = STATE.currentCustomerRows.find(r => r.id === id);
+          if (row) {
+            row.included = e.target.checked;
+            renderDynamicPreviewTable();
+            calculateTotals();
+          }
+        };
+      });
+
+      // Cell editing via contenteditable
+      document.querySelectorAll('.cell-editable').forEach(cell => {
+        cell.onblur = (e) => {
+          const id = e.target.dataset.id;
+          const col = e.target.dataset.col;
+          const row = STATE.currentCustomerRows.find(r => r.id === id);
+          if (!row) return;
+
+          const newVal = e.target.innerText.trim();
+          row.data[col] = newVal;
+
+          const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+          const rateCol = STATE.mappings.rateCol;
+          const qtyCol = STATE.mappings.qtyCol;
+
+          if (col === sumCol && sumCol !== '__CALC__') {
+            row.computedAmount = parseCleanNumber(newVal);
+          } else if (sumCol === '__CALC__' || col === rateCol || col === qtyCol) {
+            const q = parseCleanNumber(getCleanRowValue(row.data, qtyCol)) || 1;
+            const r = parseCleanNumber(getCleanRowValue(row.data, rateCol)) || 0;
+            row.computedAmount = q * r;
+            if (sumCol && sumCol !== '__CALC__') row.data[sumCol] = row.computedAmount;
+          }
+
+          detectZeroAmountEntries();
+          detectDuplicateEntries();
+          calculateTotals();
+        };
+      });
+
+      document.querySelectorAll('.btn-del-row').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          STATE.currentCustomerRows = STATE.currentCustomerRows.filter(r => r.id !== id);
+          detectZeroAmountEntries();
+          detectDuplicateEntries();
+          renderDynamicPreviewTable();
+          calculateTotals();
+        };
+      });
+    }
+
+    document.getElementById('btn-add-row').onclick = () => {
+      const newObj = {};
+      STATE.availableColumns.forEach(c => newObj[c] = '');
+      
+      const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const discCol = document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol;
+
+      if (sumCol && sumCol !== '__CALC__') newObj[sumCol] = 5000;
+      if (discCol) newObj[discCol] = 0;
+      if (STATE.mappings.rateCol) newObj[STATE.mappings.rateCol] = 5000;
+      if (STATE.mappings.qtyCol) newObj[STATE.mappings.qtyCol] = 1;
+      if (STATE.mappings.customerCol) newObj[STATE.mappings.customerCol] = STATE.selectedCustomer !== '__ALL__' ? STATE.selectedCustomer : 'Party';
+
+      STATE.currentCustomerRows.push({
+        id: 'custom_' + Date.now(),
+        included: true,
+        computedAmount: 5000,
+        isDuplicate: false,
+        duplicateIndex: 0,
+        data: newObj
+      });
+
+      detectZeroAmountEntries();
+      detectDuplicateEntries();
+      renderDynamicPreviewTable();
+      calculateTotals();
+    };
+
+    function toggleDiscountModeUI() {
+      const mode = document.getElementById('calc-discount-type').value;
+      const colWrapper = document.getElementById('discount-column-wrapper');
+      const manualWrapper = document.getElementById('discount-manual-wrapper');
+      const manualLabel = document.getElementById('discount-manual-label');
+
+      if (mode === 'column') {
+        colWrapper.classList.remove('hidden');
+        manualWrapper.classList.add('hidden');
+      } else {
+        colWrapper.classList.add('hidden');
+        manualWrapper.classList.remove('hidden');
+        manualLabel.innerText = mode === 'percent' ? 'Enter Percentage (%):' : 'Enter Flat Amount (₹):';
+      }
+    }
+
+    // CALCULATION ENGINE: ALWAYS RE-EVALUATES THE SELECTED WANTED COLUMN
+    function calculateTotals() {
+      const includedRows = (STATE.currentCustomerRows || []).filter(r => r.included);
+      const activeSumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const rateCol = STATE.mappings.rateCol;
+      const qtyCol = STATE.mappings.qtyCol;
+
+      // Calculate Subtotal dynamically from the wanted column
+      let subtotal = 0;
+      includedRows.forEach(r => {
+        let rowAmt = 0;
+        if (activeSumCol && activeSumCol !== '__CALC__') {
+          rowAmt = parseCleanNumber(getCleanRowValue(r.data, activeSumCol));
+        } else if (rateCol && qtyCol) {
+          const q = parseCleanNumber(getCleanRowValue(r.data, qtyCol)) || 1;
+          const rateVal = parseCleanNumber(getCleanRowValue(r.data, rateCol)) || 0;
+          rowAmt = q * rateVal;
+        }
+        r.computedAmount = rowAmt;
+        subtotal += rowAmt;
+      });
+
+      // Deduction / Discount calculation
+      const discountType = document.getElementById('calc-discount-type').value;
+      const discColSelect = document.getElementById('map-discount-col');
+      const activeDiscCol = discColSelect ? discColSelect.value : STATE.mappings.discountCol;
+      
+      let discountAmount = 0;
+      let discountLabelText = STATE.billingMode === 'freight' ? 'Toll / Deductions:' : 'Discount:';
+
+      if (discountType === 'column') {
+        if (activeDiscCol) {
+          discountAmount = includedRows.reduce((sum, r) => sum + Math.abs(parseCleanNumber(getCleanRowValue(r.data, activeDiscCol))), 0);
+          discountLabelText = `${activeDiscCol} (Deductions):`;
+        } else {
+          discountAmount = 0;
+        }
+      } else if (discountType === 'percent') {
+        const pct = parseFloat(document.getElementById('calc-discount-val').value) || 0;
+        discountAmount = (subtotal * pct) / 100;
+        discountLabelText = `Deduction (${pct}%):`;
+      } else {
+        discountAmount = parseFloat(document.getElementById('calc-discount-val').value) || 0;
+      }
+
+      discountAmount = Math.max(0, Math.min(subtotal, Math.abs(discountAmount)));
+      const taxableValue = Math.max(0, subtotal - discountAmount);
+
+      // GST calculation
+      let cgst = 0, sgst = 0, igst = 0, totalTax = 0;
+      const isGstMode = STATE.billingMode === 'gst';
+
+      if (isGstMode) {
+        const rate = STATE.gst.rate;
+        if (STATE.gst.taxType === 'intra') {
+          const halfRate = rate / 2;
+          cgst = (taxableValue * halfRate) / 100;
+          sgst = (taxableValue * halfRate) / 100;
+          totalTax = cgst + sgst;
+          
+          document.getElementById('row-cgst').classList.remove('hidden');
+          document.getElementById('row-sgst').classList.remove('hidden');
+          document.getElementById('row-igst').classList.add('hidden');
+
+          document.getElementById('view-cgst-label').innerText = `CGST (${halfRate}%):`;
+          document.getElementById('view-cgst-val').innerText = formatInr(cgst);
+          document.getElementById('view-sgst-label').innerText = `SGST (${halfRate}%):`;
+          document.getElementById('view-sgst-val').innerText = formatInr(sgst);
+        } else {
+          igst = (taxableValue * rate) / 100;
+          totalTax = igst;
+
+          document.getElementById('row-cgst').classList.add('hidden');
+          document.getElementById('row-sgst').classList.add('hidden');
+          document.getElementById('row-igst').classList.remove('hidden');
+
+          document.getElementById('view-igst-label').innerText = `IGST (${rate}%):`;
+          document.getElementById('view-igst-val').innerText = formatInr(igst);
+        }
+      } else {
+        document.getElementById('row-cgst').classList.add('hidden');
+        document.getElementById('row-sgst').classList.add('hidden');
+        document.getElementById('row-igst').classList.add('hidden');
+      }
+
+      STATE.gst.cgst = cgst;
+      STATE.gst.sgst = sgst;
+      STATE.gst.igst = igst;
+      STATE.gst.totalTax = totalTax;
+
+      const advanceVal = Math.max(0, parseFloat(document.getElementById('calc-advance').value) || 0);
+      let grossTotal = taxableValue;
+      if (isGstMode && STATE.gst.rcm !== 'yes') grossTotal += totalTax;
+      
+      const afterAdvance = Math.max(0, grossTotal - advanceVal);
+
+      const roundOffEnabled = document.getElementById('calc-round-off').checked;
+      let grandTotal = afterAdvance;
+      let roundOffDiff = 0;
+      if (roundOffEnabled) {
+        grandTotal = Math.round(afterAdvance);
+        roundOffDiff = grandTotal - afterAdvance;
+      }
+
+      STATE.metadata.subtotal = subtotal;
+      STATE.metadata.discount = discountAmount;
+      STATE.metadata.discountType = discountType;
+      STATE.metadata.discountLabel = discountLabelText;
+      STATE.metadata.advance = advanceVal;
+      STATE.metadata.roundOff = roundOffDiff;
+      STATE.metadata.grandTotal = grandTotal;
+
+      document.getElementById('view-subtotal').innerText = formatInr(subtotal);
+
+      const rowDisc = document.getElementById('row-discount');
+      const badgeDisc = document.getElementById('badge-discount-summary');
+      document.getElementById('view-discount-label').innerText = discountLabelText;
+      document.getElementById('view-discount').innerText = '-' + formatInr(discountAmount);
+      badgeDisc.innerText = `-${formatInr(discountAmount)} Off`;
+
+      rowDisc.classList.toggle('hidden', discountAmount <= 0);
+
+      const rowAdv = document.getElementById('row-advance');
+      rowAdv.classList.toggle('hidden', advanceVal <= 0);
+      if (advanceVal > 0) document.getElementById('view-advance').innerText = '-' + formatInr(advanceVal);
+
+      document.getElementById('view-roundoff').innerText = (roundOffDiff >= 0 ? '+' : '') + formatInr(roundOffDiff);
+      document.getElementById('view-grand-total').innerText = formatInr(grandTotal);
+
+      document.getElementById('view-amount-words').innerText = numberToWordsIndian(grandTotal);
+
+      document.getElementById('calc-formula-display').innerText = 
+        `${formatInr(subtotal)} - ${formatInr(discountAmount)} ${isGstMode ? '+ Tax' : ''} = ${formatInr(grandTotal)}`;
+    }
+
+    function formatInr(num) {
+      return '₹' + Number(num || 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    document.getElementById('meta-invoice-no').oninput = (e) => {
+      STATE.metadata.invoiceNo = e.target.value;
+      document.getElementById('view-freight-ref-no').innerText = e.target.value;
+      document.getElementById('view-invoice-no').innerText = e.target.value;
+    };
+    document.getElementById('meta-invoice-date').onchange = (e) => {
+      STATE.metadata.invoiceDate = e.target.value;
+      document.getElementById('view-freight-date').innerText = e.target.value;
+      document.getElementById('view-invoice-date').innerText = e.target.value;
+    };
+
+    document.getElementById('calc-discount-type').onchange = () => {
+      toggleDiscountModeUI();
+      calculateTotals();
+    };
+    document.getElementById('calc-discount-val').oninput = calculateTotals;
+    document.getElementById('calc-advance').oninput = calculateTotals;
+    document.getElementById('calc-round-off').onchange = calculateTotals;
+
+    // PRINT TRIGGER
+    function buildPrintSheet() {
+      const isF = STATE.billingMode === 'freight';
+      const m = STATE.metadata;
+      const cols = STATE.orderedColumns.filter(c => c.selected);
+      const rows = (STATE.currentCustomerRows || []).filter(r => r.included);
+      const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const discCol = document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol;
+      const numCols = new Set([sumCol, discCol, STATE.mappings.rateCol, STATE.mappings.qtyCol].filter(Boolean));
+      const c = STATE.activeClient;
+      const party = c.name || (STATE.selectedCustomer !== '__ALL__' ? STATE.selectedCustomer : 'All Parties / Consolidated Bookings');
+      const money = v => (v < 0 ? '-' : '') + formatInr(Math.abs(v));
+
+      let head = '<th>#</th>' + cols.map(col => `<th class="${numCols.has(col.name) ? 'r' : ''}">${escapeHTML(col.name)}</th>`).join('');
+      let body = rows.map((r, i) =>
+        `<tr><td>${i + 1}</td>` + cols.map(col =>
+          `<td class="${numCols.has(col.name) ? 'r' : ''}">${escapeHTML(String(getCleanRowValue(r.data, col.name) ?? ''))}</td>`).join('') + '</tr>'
+      ).join('');
+      if (!rows.length) body = `<tr><td colspan="${cols.length + 1}">No entries</td></tr>`;
+
+      const t = [[isF ? 'Total Freight Amount' : 'Taxable Value', m.subtotal]];
+      if (m.discount > 0) t.push([m.discountLabel.replace(/:$/, ''), -m.discount]);
+      if (!isF) {
+        if (STATE.gst.taxType === 'intra') {
+          t.push([`CGST (${STATE.gst.rate / 2}%)`, STATE.gst.cgst], [`SGST (${STATE.gst.rate / 2}%)`, STATE.gst.sgst]);
+        } else t.push([`IGST (${STATE.gst.rate}%)`, STATE.gst.igst]);
+      }
+      if (m.advance > 0) t.push(['Advance Received', -m.advance]);
+      if (m.roundOff) t.push(['Round-off', m.roundOff]);
+      const totals = t.map(x => `<tr><td>${escapeHTML(x[0])}</td><td class="r">${money(x[1])}</td></tr>`).join('') +
+        `<tr class="ps-grand"><td>${isF ? 'Net Freight Due' : 'Net Total Payable'}</td><td class="r">${formatInr(m.grandTotal)}</td></tr>`;
+
+      document.getElementById('print-sheet').innerHTML = `
+        <div class="ps-head">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            ${STATE.biz.logo ? `<img src="${STATE.biz.logo}" style="max-height:50px;max-width:130px">` : ''}
+            <div>
+              <div class="ps-title">${isF ? 'Freight Summary Sheet' : 'Tax Invoice'}</div>
+              <div class="ps-biz">${escapeHTML(STATE.biz.name)}</div>
+              <div class="ps-muted">${escapeHTML(STATE.biz.address)}</div>
+              <div class="ps-muted">Phone: ${escapeHTML(STATE.biz.phone)} | Email: ${escapeHTML(STATE.biz.email)}</div>
+              ${isF ? '' : `<div><b>GSTIN: ${escapeHTML(STATE.biz.gstin || '')}</b></div>`}
+            </div>
+          </div>
+          <div class="ps-meta">
+            <div><b>${isF ? 'Ref No' : 'Invoice No'}:</b> ${escapeHTML(m.invoiceNo)}</div>
+            <div><b>Date:</b> ${escapeHTML(m.invoiceDate)}</div>
+            <div><b>Period:</b> ${escapeHTML(m.periodFrom)} to ${escapeHTML(m.periodTo)}</div>
+            ${isF ? '' : `<div><b>Place of Supply:</b> ${escapeHTML(STATE.gst.placeOfSupply)}</div><div><b>RCM:</b> ${STATE.gst.rcm.toUpperCase()}</div>`}
+          </div>
+        </div>
+        <div class="ps-party">
+          <div class="ps-muted" style="font-size:8px;text-transform:uppercase">${isF ? 'Party / Consignor' : 'Billed To'}</div>
+          <div style="font-size:12px;font-weight:700">${escapeHTML(party)}</div>
+          ${c.contactPerson || c.phone ? `<div class="ps-muted">${escapeHTML([c.contactPerson && 'Attn: ' + c.contactPerson, c.phone && 'Phone: ' + c.phone].filter(Boolean).join(' | '))}</div>` : ''}
+          ${c.address ? `<div class="ps-muted">${escapeHTML(c.address)}</div>` : ''}
+          ${!isF && (c.gstin || c.pan) ? `<div>${c.gstin ? 'GSTIN: ' + escapeHTML(c.gstin.toUpperCase()) : ''} ${c.pan ? ' PAN: ' + escapeHTML(c.pan.toUpperCase()) : ''}</div>` : ''}
+        </div>
+        <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+        <table class="ps-totals"><tbody>${totals}</tbody></table>
+        ${isF ? '' : `<p><b>Amount in Words:</b> <i>${escapeHTML(numberToWordsIndian(m.grandTotal))}</i></p>`}
+        <p class="ps-muted"><b>Bank:</b> ${escapeHTML(STATE.biz.bank)} | <b>IFSC:</b> ${escapeHTML(STATE.biz.ifsc)} | <b>UPI:</b> ${escapeHTML(STATE.biz.upi)}</p>
+        ${isF ? '<div class="ps-sign"><div>Prepared / Checked By</div><div>Authorized Signatory</div></div>' : ''}
+      `;
+    }
+
+    window.addEventListener('beforeprint', buildPrintSheet); // also covers Ctrl+P
+
+    document.getElementById('btn-print').onclick = () => {
+      if (!STATE.currentCustomerRows || STATE.currentCustomerRows.length === 0) {
+        alert('No entries to print. Upload a file or load Demo Data first.');
+        return;
+      }
+      if (document.activeElement) document.activeElement.blur(); // commit any cell being edited
+      calculateTotals();
+      buildPrintSheet();
+      window.print();
+    };
+
+    function logCurrentBillToSummary() {
+      const clientName = STATE.activeClient.name || STATE.selectedCustomer;
+      if (!clientName) return;
+
+      const billRecord = {
+        invoiceNo: STATE.metadata.invoiceNo,
+        date: STATE.metadata.invoiceDate,
+        customerName: clientName === '__ALL__' ? 'Consolidated Trips' : clientName,
+        mode: STATE.billingMode,
+        subtotal: STATE.metadata.subtotal,
+        discount: STATE.metadata.discount,
+        tax: STATE.gst.totalTax,
+        finalAmount: STATE.metadata.grandTotal
+      };
+
+      const existingIdx = STATE.generatedBillsLog.findIndex(b => b.invoiceNo === billRecord.invoiceNo);
+      if (existingIdx >= 0) {
+        STATE.generatedBillsLog[existingIdx] = billRecord;
+      } else {
+        STATE.generatedBillsLog.push(billRecord);
+      }
+
+      document.getElementById('badge-logged-count').innerText = STATE.generatedBillsLog.length;
+      renderSummaryTable();
+    }
+
+    function renderSummaryTable() {
+      const tbody = document.getElementById('summary-table-body');
+      const tfoot = document.getElementById('summary-table-foot');
+      tbody.innerHTML = '';
+
+      if (STATE.generatedBillsLog.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-8 text-slate-400 italic">
+              No bills logged yet. Generate or click "+ Log to Summary" to add sheets.
+            </td>
+          </tr>
+        `;
+        tfoot.innerHTML = '';
+        return;
+      }
+
+      let totalSubtotal = 0;
+      let totalDiscount = 0;
+      let totalFinal = 0;
+
+      STATE.generatedBillsLog.forEach((bill, idx) => {
+        totalSubtotal += bill.subtotal;
+        totalDiscount += bill.discount;
+        totalFinal += bill.finalAmount;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 text-center font-mono text-slate-400 text-[11px]">${idx + 1}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-slate-900">${escapeHTML(bill.invoiceNo)}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">
+            ${escapeHTML(bill.customerName)}
+            <span class="text-[9px] px-1 py-0.2 rounded font-mono uppercase ml-1 ${bill.mode === 'gst' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}">${bill.mode}</span>
+          </td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap">${formatInr(bill.subtotal)}</td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap text-emerald-600">${bill.discount > 0 ? '-' + formatInr(bill.discount) : '₹0.00'}</td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap font-bold text-indigo-700">${formatInr(bill.finalAmount)}</td>
+          <td class="py-2.5 px-2 text-center">
+            <button data-idx="${idx}" class="btn-remove-logged text-slate-300 hover:text-rose-500">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tfoot.innerHTML = `
+        <tr>
+          <td colspan="3" class="py-3 px-3 text-right font-bold text-slate-900 uppercase tracking-wider">
+            TOTAL OF EACH COLUMN:
+          </td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">${formatInr(totalSubtotal)}</td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">-${formatInr(totalDiscount)}</td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-indigo-900 text-sm whitespace-nowrap">${formatInr(totalFinal)}</td>
+          <td></td>
+        </tr>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+
+      document.querySelectorAll('.btn-remove-logged').forEach(btn => {
+        btn.onclick = () => {
+          const idx = parseInt(btn.dataset.idx);
+          STATE.generatedBillsLog.splice(idx, 1);
+          document.getElementById('badge-logged-count').innerText = STATE.generatedBillsLog.length;
+          renderSummaryTable();
+        };
+      });
+    }
+
+    const summaryModal = document.getElementById('modal-summary');
+    document.getElementById('btn-view-summary-modal').onclick = () => {
+      renderSummaryTable();
+      summaryModal.classList.remove('hidden');
+    };
+    document.getElementById('btn-close-summary').onclick = () => summaryModal.classList.add('hidden');
+    document.getElementById('btn-dismiss-summary').onclick = () => summaryModal.classList.add('hidden');
+
+    document.getElementById('btn-clear-summary').onclick = () => {
+      if (confirm('Are you sure you want to clear the summary log?')) {
+        STATE.generatedBillsLog = [];
+        document.getElementById('badge-logged-count').innerText = '0';
+        renderSummaryTable();
+      }
+    };
+
+    document.getElementById('btn-add-to-summary').onclick = () => {
+      const clientName = STATE.activeClient.name || STATE.selectedCustomer;
+      if (!clientName) {
+        alert('Please select or specify a party to log.');
+        return;
+      }
+      logCurrentBillToSummary();
+      alert(`Sheet ${STATE.metadata.invoiceNo} for ${clientName} added to Summary Log!`);
+    };
+
+    // Master Summary Excel Export
+    document.getElementById('btn-export-summary-excel').onclick = () => {
+      if (STATE.generatedBillsLog.length === 0) {
+        alert('No bills in the summary log.');
+        return;
+      }
+
+      const borderThin = {
+        top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+      };
+
+      const styleTitle = {
+        font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '1E293B' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleHeader = {
+        font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '0F172A' } },
+        border: borderThin,
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleCell = {
+        font: { sz: 10, color: { rgb: '1E293B' }, name: 'Calibri' },
+        border: borderThin,
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+
+      const styleCellNum = {
+        font: { sz: 10, color: { rgb: '0F172A' }, name: 'Calibri' },
+        border: borderThin,
+        alignment: { horizontal: 'right', vertical: 'center' }
+      };
+
+      const rows = [];
+      const merges = [];
+
+      rows.push([
+        { v: `${STATE.biz.name.toUpperCase()} - MASTER FREIGHT SUMMARY`, s: styleTitle },
+        { v: '', s: styleTitle }, { v: '', s: styleTitle }, { v: '', s: styleTitle }, { v: '', s: styleTitle }, { v: '', s: styleTitle }
+      ]);
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+
+      rows.push([
+        { v: `Date: ${new Date().toISOString().split('T')[0]}   |   Total Sheets: ${STATE.generatedBillsLog.length}`, s: { font: { sz: 9, color: { rgb: '64748B' } }, alignment: { horizontal: 'center' } } },
+        { v: '' }, { v: '' }, { v: '' }, { v: '' }, { v: '' }
+      ]);
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } });
+
+      rows.push([]);
+
+      rows.push([
+        { v: "S.No", s: styleHeader },
+        { v: "Ref No", s: styleHeader },
+        { v: "Party / Client Name", s: styleHeader },
+        { v: "Freight Amount (Rs)", s: styleHeader },
+        { v: "Deduction (Rs)", s: styleHeader },
+        { v: "Net Amount (Rs)", s: styleHeader }
+      ]);
+
+      let sumSubtotal = 0, sumDiscount = 0, sumFinal = 0;
+      STATE.generatedBillsLog.forEach((bill, i) => {
+        sumSubtotal += bill.subtotal;
+        sumDiscount += bill.discount;
+        sumFinal += bill.finalAmount;
+
+        rows.push([
+          { v: i + 1, s: styleCell, t: 'n' },
+          { v: bill.invoiceNo, s: styleCell, t: 's' },
+          { v: `${bill.customerName} [${bill.mode.toUpperCase()}]`, s: styleCell, t: 's' },
+          { v: bill.subtotal, s: styleCellNum, t: 'n' },
+          { v: -bill.discount, s: styleCellNum, t: 'n' },
+          { v: bill.finalAmount, s: styleCellNum, t: 'n' }
+        ]);
+      });
+
+      const totalRIdx = rows.length;
+      rows.push([
+        { v: "TOTAL:", s: { ...styleHeader, alignment: { horizontal: 'right' } } },
+        { v: "", s: styleHeader }, { v: "", s: styleHeader },
+        { v: sumSubtotal, s: styleHeader, t: 'n' },
+        { v: -sumDiscount, s: styleHeader, t: 'n' },
+        { v: sumFinal, s: styleHeader, t: 'n' }
+      ]);
+      merges.push({ s: { r: totalRIdx, c: 0 }, e: { r: totalRIdx, c: 2 } });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!merges'] = merges;
+      ws['!cols'] = [{ wch: 8 }, { wch: 16 }, { wch: 32 }, { wch: 20 }, { wch: 18 }, { wch: 20 }];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Master Summary");
+      XLSX.writeFile(wb, `Master_Freight_Summary.xlsx`);
+    };
+
+    // DYNAMIC EXCEL EXPORT
+    document.getElementById('btn-export-excel').onclick = () => {
+      const clientName = STATE.activeClient.name || STATE.selectedCustomer;
+      if (!clientName) {
+        alert('Please select or specify a party before exporting.');
+        return;
+      }
+
+      const activeCols = STATE.orderedColumns.filter(c => c.selected);
+      if (activeCols.length === 0) {
+        alert('Please select at least one column.');
+        return;
+      }
+
+      logCurrentBillToSummary();
+
+      const borderThin = {
+        top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+        right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+      };
+
+      const styleBanner = {
+        font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '0F172A' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleBadge = {
+        font: { bold: true, sz: 10, color: { rgb: '0F172A' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'F1F5F9' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleMutedCenter = {
+        font: { sz: 9, color: { rgb: '64748B' }, name: 'Calibri' },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleMetaHeader = {
+        font: { bold: true, sz: 10, color: { rgb: '1E293B' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'F1F5F9' } },
+        border: borderThin,
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+
+      const styleMetaCell = {
+        font: { sz: 10, color: { rgb: '334155' }, name: 'Calibri' },
+        border: borderThin,
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+
+      const styleTableHeader = {
+        font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: '1E293B' } },
+        border: borderThin,
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const styleDataText = {
+        font: { sz: 10, color: { rgb: '1E293B' }, name: 'Calibri' },
+        border: borderThin,
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+
+      const styleDataNumeric = {
+        font: { sz: 10, color: { rgb: '0F172A' }, name: 'Calibri' },
+        border: borderThin,
+        alignment: { horizontal: 'right', vertical: 'center' }
+      };
+
+      const styleTotalLabel = {
+        font: { bold: true, sz: 11, color: { rgb: '1E1B4B' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'E0E7FF' } },
+        border: borderThin,
+        alignment: { horizontal: 'right', vertical: 'center' }
+      };
+
+      const styleTotalNum = {
+        font: { bold: true, sz: 11, color: { rgb: '312E81' }, name: 'Calibri' },
+        fill: { fgColor: { rgb: 'E0E7FF' } },
+        border: borderThin,
+        alignment: { horizontal: 'right', vertical: 'center' }
+      };
+
+      const lastColIndex = activeCols.length;
+      const midColIndex = Math.floor(lastColIndex / 2);
+
+      const rows = [];
+      const merges = [];
+
+      function pushMergedFullRow(cellVal, style) {
+        const rIndex = rows.length;
+        const rowCells = [{ v: cellVal, s: style }];
+        for (let c = 1; c <= lastColIndex; c++) rowCells.push({ v: '', s: style });
+        rows.push(rowCells);
+        merges.push({ s: { r: rIndex, c: 0 }, e: { r: rIndex, c: lastColIndex } });
+      }
+
+      function pushSplitMetaRow(leftVal, rightVal, leftStyle = styleMetaCell, rightStyle = styleMetaCell) {
+        const rIndex = rows.length;
+        const rowCells = [];
+        for (let c = 0; c <= lastColIndex; c++) {
+          if (c === 0) rowCells.push({ v: leftVal, s: leftStyle });
+          else if (c === midColIndex + 1) rowCells.push({ v: rightVal, s: rightStyle });
+          else rowCells.push({ v: '', s: c <= midColIndex ? leftStyle : rightStyle });
+        }
+        rows.push(rowCells);
+        merges.push({ s: { r: rIndex, c: 0 }, e: { r: rIndex, c: midColIndex } });
+        merges.push({ s: { r: rIndex, c: midColIndex + 1 }, e: { r: rIndex, c: lastColIndex } });
+      }
+
+      // Header Banner
+      pushMergedFullRow(STATE.biz.name.toUpperCase(), styleBanner);
+      const isFreight = STATE.billingMode === 'freight';
+      pushMergedFullRow(isFreight ? "FREIGHT SUMMARY SHEET" : "TAX INVOICE", styleBadge);
+      pushMergedFullRow(STATE.biz.address, styleMutedCenter);
+      pushMergedFullRow(`Phone: ${STATE.biz.phone} | Email: ${STATE.biz.email}`, styleMutedCenter);
+
+      rows.push(Array(lastColIndex + 1).fill({ v: '' }));
+
+      const client = STATE.activeClient;
+      const resolvedPartyName = client.name || (STATE.selectedCustomer !== '__ALL__' ? STATE.selectedCustomer : 'Consolidated Bookings');
+
+      if (isFreight) {
+        pushSplitMetaRow("SUMMARY DETAILS", "PARTY DETAILS", styleMetaHeader, styleMetaHeader);
+        pushSplitMetaRow(`Ref No: ${STATE.metadata.invoiceNo}`, `Party: ${resolvedPartyName}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
+        pushSplitMetaRow(`Date: ${STATE.metadata.invoiceDate}`, `Address: ${client.address || 'N/A'}`);
+        pushSplitMetaRow(`Period: ${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`, `Phone: ${client.phone || 'N/A'}`);
+      } else {
+        pushSplitMetaRow("INVOICE DETAILS", "BILLED TO", styleMetaHeader, styleMetaHeader);
+        pushSplitMetaRow(`Invoice No: ${STATE.metadata.invoiceNo}`, `Name: ${resolvedPartyName}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
+        pushSplitMetaRow(`Date: ${STATE.metadata.invoiceDate}`, `Buyer GSTIN: ${client.gstin || 'Unregistered'}`);
+        pushSplitMetaRow(`Place of Supply: ${STATE.gst.placeOfSupply}`, `SAC: ${STATE.gst.hsnSac} | RCM: ${STATE.gst.rcm.toUpperCase()}`);
+      }
+
+      rows.push(Array(lastColIndex + 1).fill({ v: '' }));
+
+      // Table Header Row
+      const headerRow = [{ v: "S.No", s: styleTableHeader }];
+      activeCols.forEach(col => headerRow.push({ v: col.name, s: styleTableHeader }));
+      rows.push(headerRow);
+
+      // Data Rows
+      const activeRows = (STATE.currentCustomerRows || []).filter(r => r.included);
+      const activeSumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
+      const activeDiscCol = document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol;
+
+      activeRows.forEach((row, idx) => {
+        const rowCells = [{ v: idx + 1, s: styleDataText, t: 'n' }];
+
+        activeCols.forEach(col => {
+          const rawVal = getCleanRowValue(row.data, col.name);
+          const isNumeric = col.name === activeSumCol || col.name === activeDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
+          if (isNumeric) {
+            rowCells.push({ v: parseCleanNumber(rawVal), s: styleDataNumeric, t: 'n' });
+          } else {
+            rowCells.push({ v: String(rawVal), s: styleDataText, t: 's' });
+          }
+        });
+        rows.push(rowCells);
+      });
+
+      rows.push(Array(lastColIndex + 1).fill({ v: '' }));
+
+      function pushSummaryRow(label, val, lblStyle = styleTotalLabel, valStyle = styleTotalNum) {
+        const rIndex = rows.length;
+        const rowCells = [];
+        for (let c = 0; c < lastColIndex; c++) rowCells.push({ v: c === 0 ? label : '', s: lblStyle });
+        rowCells.push({ v: val, s: valStyle, t: 'n' });
+        rows.push(rowCells);
+        merges.push({ s: { r: rIndex, c: 0 }, e: { r: rIndex, c: lastColIndex - 1 } });
+      }
+
+      pushSummaryRow(isFreight ? "Total Freight Amount:" : "Taxable Value:", STATE.metadata.subtotal);
+
+      if (STATE.metadata.discount > 0) {
+        pushSummaryRow(isFreight ? "Toll / Rebate Deductions:" : "Discount:", -STATE.metadata.discount);
+      }
+
+      if (!isFreight) {
+        if (STATE.gst.taxType === 'intra') {
+          const half = STATE.gst.rate / 2;
+          pushSummaryRow(`CGST (${half}%):`, STATE.gst.cgst);
+          pushSummaryRow(`SGST (${half}%):`, STATE.gst.sgst);
+        } else {
+          pushSummaryRow(`IGST (${STATE.gst.rate}%):`, STATE.gst.igst);
+        }
+      }
+
+      if (STATE.metadata.advance > 0) {
+        pushSummaryRow("Advance Received:", -STATE.metadata.advance);
+      }
+
+      if (STATE.metadata.roundOff !== 0) {
+        pushSummaryRow("Round-Off:", STATE.metadata.roundOff);
+      }
+
+      pushSummaryRow(isFreight ? "Net Freight Due:" : "Net Total Payable:", STATE.metadata.grandTotal);
+
+      rows.push(Array(lastColIndex + 1).fill({ v: '' }));
+      pushMergedFullRow("BANK PAYMENT DETAILS", styleMetaHeader);
+      pushMergedFullRow(`Bank Name & A/c: ${STATE.biz.bank} | IFSC: ${STATE.biz.ifsc} | UPI: ${STATE.biz.upi}`, styleMetaCell);
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!merges'] = merges;
+
+      const colWidths = [{ wch: 8 }];
+      activeCols.forEach(col => {
+        let maxLen = col.name.length;
+        activeRows.forEach(r => {
+          const val = getCleanRowValue(r.data, col.name);
+          if (val !== undefined && val !== null) {
+            const s = String(val).trim();
+            if (s.length > maxLen) maxLen = s.length;
+          }
+        });
+        colWidths.push({ wch: maxLen + 2 });
+      });
+      ws['!cols'] = colWidths;
+
+      const sheetName = isFreight ? "Freight Summary" : "Tax Invoice";
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      const safeCustomer = (resolvedPartyName).replace(/[^a-zA-Z0-9_-]/g, "_");
+      XLSX.writeFile(wb, `${STATE.metadata.invoiceNo}_${safeCustomer}_${isFreight ? 'Freight_Summary' : 'Tax_Invoice'}.xlsx`);
+
+      // Advance to the next invoice number so the next bill gets a fresh Ref No
+      STATE.biz.counter = (parseInt(STATE.biz.counter) || 101) + 1;
+      saveSettings();
+      STATE.metadata.invoiceNo = `${STATE.biz.prefix}${STATE.biz.counter}`;
+      document.getElementById('meta-invoice-no').value = STATE.metadata.invoiceNo;
+      document.getElementById('view-freight-ref-no').innerText = STATE.metadata.invoiceNo;
+      document.getElementById('view-invoice-no').innerText = STATE.metadata.invoiceNo;
+    };
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Demo Data Loader
+    document.getElementById('btn-load-sample').onclick = () => {
+      const demoData = [
+        { "LR / Docket No": "LR-9021", "Trip Date": "2026-10-12", "Party Name": "Horizon Digital Labs", "Vehicle No": "MH-12-RN-4401", "Origin": "Pune Hub", "Destination": "Mumbai Port", "Weight / Pkg": "4.5 MT", "Freight Charges": 7000, "Toll / Rebate": 500 },
+        { "LR / Docket No": "LR-9021", "Trip Date": "2026-10-12", "Party Name": "Horizon Digital Labs", "Vehicle No": "MH-12-RN-4401", "Origin": "Pune Hub", "Destination": "Mumbai Port", "Weight / Pkg": "4.5 MT", "Freight Charges": 7000, "Toll / Rebate": 500 },
+        { "LR / Docket No": "LR-9035", "Trip Date": "2026-10-14", "Party Name": "Horizon Digital Labs", "Vehicle No": "MH-12-BT-1029", "Origin": "Chakan MIDC", "Destination": "Thane Depot", "Weight / Pkg": "0 MT", "Freight Charges": 0, "Toll / Rebate": 0 },
+        { "LR / Docket No": "LR-9044", "Trip Date": "2026-10-15", "Party Name": "Horizon Digital Labs", "Vehicle No": "MH-14-CL-8820", "Origin": "Pune Logistics Park", "Destination": "Navi Mumbai Yard", "Weight / Pkg": "7.2 MT", "Freight Charges": 6200, "Toll / Rebate": 300 },
+        { "LR / Docket No": "LR-9089", "Trip Date": "2026-10-20", "Party Name": "Horizon Digital Labs", "Vehicle No": "MH-12-KP-3003", "Origin": "Bhosari GIDC", "Destination": "Nashik Plant", "Weight / Pkg": "12 MT", "Freight Charges": 8500, "Toll / Rebate": 700 },
+        { "LR / Docket No": "LR-8812", "Trip Date": "2026-10-04", "Party Name": "TechCorp Global Logistics", "Vehicle No": "MH-04-AZ-9911", "Origin": "Bhiwandi Warehouse", "Destination": "Pune Godown", "Weight / Pkg": "16 MT", "Freight Charges": 14000, "Toll / Rebate": 1000 }
+      ];
+
+      document.getElementById('file-status').innerText = 'sample_freight_data.xlsx';
+      loadRawDataset(demoData, 'sample_freight_data.xlsx');
+
+      document.getElementById('client-firm-name').value = 'Horizon Digital Labs Pvt Ltd';
+      document.getElementById('client-contact-person').value = 'Mr. Rajesh Kulkarni';
+      document.getElementById('client-phone').value = '+91 98220 12345';
+      document.getElementById('client-address').value = 'Tower 3, Cybercity IT Park, Pune - 411028';
+      document.getElementById('client-gstin').value = '27AABCH1234F1ZP';
+      syncClientProfileUI();
+
+      document.getElementById('calc-discount-type').value = 'column';
+      STATE.mappings.discountCol = 'Toll / Rebate';
+      document.getElementById('map-discount-col').value = 'Toll / Rebate';
+      toggleDiscountModeUI();
+      calculateTotals();
+    };
+
+    document.getElementById('btn-download-app-html').onclick = () => {
+      const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('meta-invoice-date').value = today;
+      document.getElementById('view-freight-date').innerText = today;
+      document.getElementById('view-invoice-date').innerText = today;
+      initSettings();
+      toggleDiscountModeUI();
+      switchBillingMode('freight');
+      setPageOrientation('portrait');
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
