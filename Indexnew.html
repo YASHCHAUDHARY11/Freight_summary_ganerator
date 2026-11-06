@@ -33,10 +33,10 @@
         color: #000000 !important;
         margin: 0 !important;
         padding: 0 !important;
-        font-size: 11px !important;
+        font-size: 10px !important;
       }
 
-      /* Hide all web dashboard elements */
+      /* Hide web dashboard elements */
       header,
       .no-print,
       #zero-amount-alert,
@@ -85,11 +85,21 @@
         width: 100% !important;
         border-collapse: collapse !important;
         table-layout: auto !important;
+        font-size: 9.5px !important;
+        line-height: 1.25 !important;
       }
 
-      .invoice-table th, .invoice-table td {
-        padding: 6px 8px !important;
+      .invoice-table th {
+        padding: 4px 6px !important;
         border: 1px solid #cbd5e1 !important;
+        font-size: 9px !important;
+        white-space: nowrap !important;
+      }
+
+      .invoice-table td {
+        padding: 3.5px 5px !important;
+        border: 1px solid #cbd5e1 !important;
+        font-size: 9.5px !important;
       }
 
       .invoice-table thead {
@@ -100,7 +110,7 @@
         page-break-inside: avoid !important;
       }
 
-      /* PDF Text Viewers */
+      /* Print Text Viewers */
       .print-cell-text {
         display: block !important;
         color: #0f172a !important;
@@ -109,11 +119,17 @@
       .cell-edit-input {
         display: none !important;
       }
+
+      /* Keep numbers and currency strictly in one single line */
+      .is-num-text {
+        white-space: nowrap !important;
+        text-align: right !important;
+      }
     }
 
     @page {
       size: A4 portrait;
-      margin: 8mm 10mm 8mm 10mm;
+      margin: 6mm 8mm 6mm 8mm;
     }
 
     .invoice-table {
@@ -139,7 +155,7 @@
               Freight Summary
             </span>
           </div>
-          <p class="text-xs text-slate-500 hidden sm:block">Simple Freight Summary & GST Tax Invoice Hub</p>
+          <p class="text-xs text-slate-500 hidden sm:block">Freight Trip Summary & GST Tax Invoice Hub</p>
         </div>
       </div>
 
@@ -170,7 +186,7 @@
 
         <button id="btn-open-settings" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all border border-slate-200">
           <i data-lucide="store" class="w-3.5 h-3.5"></i>
-          <span class="hidden sm:inline">Settings</span>
+          <span class="hidden sm:inline">Settings & Logo</span>
         </button>
 
         <button id="btn-download-app-html" title="Download standalone index.html file" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg transition-all shadow-sm">
@@ -428,7 +444,7 @@
             <div class="flex items-center justify-between">
               <label class="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                 <i data-lucide="tag" class="w-4 h-4 text-emerald-600"></i>
-                <span id="lbl-deduction-title">Deductions / Discount</span>
+                <span id="lbl-deduction-title">Toll / Rebate Deductions</span>
               </label>
               <span id="badge-discount-summary" class="text-xs text-emerald-800 font-mono font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">-₹0.00 Off</span>
             </div>
@@ -592,13 +608,17 @@
             <!-- FREIGHT SUMMARY HEADER -->
             <div id="header-freight-mode" class="border-b-2 border-slate-900 pb-4 mb-4">
               <div class="flex justify-between items-start gap-4">
-                <div>
-                  <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">FREIGHT SUMMARY SHEET</h1>
-                  <h2 id="view-freight-biz-name" class="text-base font-bold text-indigo-700 mt-0.5">Apex Travel & Logistics Services</h2>
-                  <p id="view-freight-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-1 max-w-md leading-relaxed">Plot 42, Green Valley Commercial Center, Pune, Maharashtra - 411001</p>
-                  <p class="text-xs text-slate-500 mt-1">Phone: <span id="view-freight-biz-phone">+91 98234 56789</span> | Email: <span id="view-freight-biz-email">billing@apextravel.in</span></p>
+                <div class="flex items-start gap-3.5">
+                  <!-- Company Logo in Freight Summary -->
+                  <img id="view-freight-logo" src="" alt="Company Logo" class="hidden max-h-16 max-w-[150px] object-contain rounded-md border border-slate-200 p-1 flex-shrink-0">
+                  <div>
+                    <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">FREIGHT SUMMARY SHEET</h1>
+                    <h2 id="view-freight-biz-name" class="text-base font-bold text-indigo-700 mt-0.5">Apex Logistics & Transport Services</h2>
+                    <p id="view-freight-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-0.5 max-w-md leading-relaxed">Plot 42, Green Valley Commercial Hub, Pune, Maharashtra - 411001</p>
+                    <p class="text-xs text-slate-500 mt-1">Phone: <span id="view-freight-biz-phone">+91 98234 56789</span> | Email: <span id="view-freight-biz-email">accounts@apexlogistics.in</span></p>
+                  </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex-shrink-0">
                   <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 inline-block text-left min-w-[190px]">
                     <div class="mb-1.5">
                       <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Summary Ref No:</span>
@@ -620,13 +640,17 @@
             <!-- GST TAX INVOICE HEADER (ONLY IN GST MODE) -->
             <div id="header-gst-mode" class="hidden border-b-2 border-slate-900 pb-5 mb-5">
               <div class="flex justify-between items-start gap-4">
-                <div class="flex-1">
-                  <span class="inline-block text-[10px] font-bold tracking-wider uppercase bg-slate-900 text-white px-2.5 py-0.5 rounded mb-2">TAX INVOICE</span>
-                  <h2 id="view-biz-name" class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Apex Travel & Logistics Services</h2>
-                  <p id="view-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-1 max-w-sm">Plot 42, Green Valley Commercial Center, Pune, Maharashtra - 411001</p>
-                  <div class="text-xs text-slate-500 mt-2 space-y-0.5">
-                    <p>Phone: <span id="view-biz-phone">+91 98234 56789</span> | Email: <span id="view-biz-email">billing@apextravel.in</span></p>
-                    <p class="text-indigo-900 font-mono font-semibold">GSTIN: <span id="view-supplier-gstin">27AAAAA0000A1Z5</span></p>
+                <div class="flex items-start gap-3.5 flex-1">
+                  <!-- Company Logo in GST Tax Mode -->
+                  <img id="view-gst-logo" src="" alt="Company Logo" class="hidden max-h-16 max-w-[150px] object-contain rounded-md border border-slate-200 p-1 flex-shrink-0">
+                  <div>
+                    <span class="inline-block text-[10px] font-bold tracking-wider uppercase bg-slate-900 text-white px-2.5 py-0.5 rounded mb-1.5">TAX INVOICE</span>
+                    <h2 id="view-biz-name" class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Apex Logistics & Transport Services</h2>
+                    <p id="view-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-0.5 max-w-sm">Plot 42, Green Valley Commercial Hub, Pune, Maharashtra - 411001</p>
+                    <div class="text-xs text-slate-500 mt-1 space-y-0.5">
+                      <p>Phone: <span id="view-biz-phone">+91 98234 56789</span> | Email: <span id="view-biz-email">accounts@apexlogistics.in</span></p>
+                      <p class="text-indigo-900 font-mono font-semibold">GSTIN: <span id="view-supplier-gstin">27AAAAA0000A1Z5</span></p>
+                    </div>
                   </div>
                 </div>
                 <div class="text-right flex-shrink-0">
@@ -659,15 +683,15 @@
             </div>
 
             <!-- PARTY / CLIENT PROFILE SECTION -->
-            <div id="view-billed-to-card" class="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap justify-between items-start gap-4">
-              <div class="space-y-1 max-w-lg">
+            <div id="view-billed-to-card" class="mb-3.5 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap justify-between items-start gap-4">
+              <div class="space-y-0.5 max-w-lg">
                 <span id="lbl-party-heading" class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Party / Consignor:</span>
-                <p id="view-customer-name" class="text-base font-bold text-slate-900">No Party Selected</p>
+                <p id="view-customer-name" class="text-sm font-bold text-slate-900">No Party Selected</p>
                 <p id="view-client-contact" class="text-xs text-slate-600 hidden"></p>
                 <p id="view-client-address" class="text-xs text-slate-500 whitespace-pre-line leading-relaxed hidden"></p>
-                <div id="view-client-tax-ids" class="flex flex-wrap gap-3 text-xs font-mono font-medium pt-0.5 hidden">
-                  <span id="view-client-gstin" class="bg-indigo-50 text-indigo-900 px-2 py-0.5 rounded border border-indigo-200 hidden"></span>
-                  <span id="view-client-pan" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 hidden"></span>
+                <div id="view-client-tax-ids" class="flex flex-wrap gap-2 text-xs font-mono font-medium pt-0.5 hidden">
+                  <span id="view-client-gstin" class="bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 hidden"></span>
+                  <span id="view-client-pan" class="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded border border-slate-200 hidden"></span>
                 </div>
               </div>
 
@@ -682,13 +706,13 @@
             <div class="overflow-x-auto">
               <table class="invoice-table w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr id="table-dynamic-head" class="border-b-2 border-slate-900 bg-slate-100 text-slate-700 uppercase text-[10px] tracking-wider">
-                    <th class="py-2.5 px-2 w-8 text-center no-print">Inc</th>
-                    <th class="py-2.5 px-2 w-10 text-center font-mono">#</th>
-                    <th class="py-2.5 px-2 w-8 no-print"></th>
+                  <tr id="table-dynamic-head" class="border-b-2 border-slate-900 bg-slate-100 text-slate-700 uppercase text-[9.5px] tracking-wider">
+                    <th class="py-2 px-1.5 w-8 text-center no-print">Inc</th>
+                    <th class="py-2 px-1.5 w-9 text-center font-mono">#</th>
+                    <th class="py-2 px-1.5 w-8 no-print"></th>
                   </tr>
                 </thead>
-                <tbody id="table-dynamic-body" class="divide-y divide-slate-200">
+                <tbody id="table-dynamic-body" class="divide-y divide-slate-200 text-slate-800">
                   <tr>
                     <td colspan="6" class="text-center py-10 text-slate-400 italic">
                       Upload an Excel/CSV file or click "Demo Data" to populate table.
@@ -699,75 +723,74 @@
             </div>
 
             <!-- SUMMARY & TOTALS SECTION -->
-            <div class="mt-5 pt-4 border-t-2 border-slate-900 flex flex-col sm:flex-row justify-between gap-6">
+            <div class="mt-4 pt-3.5 border-t-2 border-slate-900 flex flex-col sm:flex-row justify-between gap-5">
               
               <!-- Left Column: Details & Signatures -->
-              <div class="w-full sm:w-1/2 text-xs space-y-2.5">
-                <div id="amount-words-box" class="hidden bg-indigo-50/50 border border-indigo-200 rounded-lg p-2.5">
-                  <span class="text-[10px] font-bold uppercase text-indigo-900 block tracking-wider">Amount in Words:</span>
-                  <p id="view-amount-words" class="font-semibold text-slate-800 text-[11px] italic mt-0.5">Zero Rupees Only</p>
+              <div class="w-full sm:w-1/2 text-xs space-y-2">
+                <div id="amount-words-box" class="hidden bg-indigo-50/50 border border-indigo-200 rounded-lg p-2">
+                  <span class="text-[9.5px] font-bold uppercase text-indigo-900 block tracking-wider">Amount in Words:</span>
+                  <p id="view-amount-words" class="font-semibold text-slate-800 text-[10.5px] italic mt-0.5">Zero Rupees Only</p>
                 </div>
 
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <p class="font-semibold text-slate-800 text-[11px] mb-1">Bank Payment & Transfer Details:</p>
-                  <div class="text-slate-600 space-y-0.5 text-[11px]">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <p class="font-semibold text-slate-800 text-[10.5px] mb-0.5">Bank Payment & Transfer Details:</p>
+                  <div class="text-slate-600 space-y-0.5 text-[10px]">
                     <p><span class="font-medium text-slate-700">Bank Name / A/C:</span> <span id="view-bank-details">ICICI Bank - A/c: 012305009988</span></p>
-                    <p><span class="font-medium text-slate-700">IFSC Code:</span> <span id="view-bank-ifsc">ICIC0000123</span></p>
-                    <p><span class="font-medium text-slate-700">UPI ID:</span> <span id="view-upi-id">apextravel@icici</span></p>
+                    <p><span class="font-medium text-slate-700">IFSC Code:</span> <span id="view-bank-ifsc">ICIC0000123</span> | <span class="font-medium text-slate-700">UPI ID:</span> <span id="view-upi-id">apexlogistics@icici</span></p>
                   </div>
                 </div>
 
-                <div id="freight-sign-box" class="pt-6 grid grid-cols-2 gap-4 text-center">
-                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[11px]">Prepared / Checked By</div>
-                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[11px]">Authorized Signatory</div>
+                <div id="freight-sign-box" class="pt-5 grid grid-cols-2 gap-4 text-center">
+                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[10px]">Prepared / Checked By</div>
+                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[10px]">Authorized Signatory</div>
                 </div>
               </div>
 
               <!-- Right Column: Calculation Breakdown -->
-              <div class="w-full sm:w-5/12 space-y-1.5 text-xs text-slate-700">
-                <div class="flex justify-between py-1">
+              <div class="w-full sm:w-5/12 space-y-1 text-xs text-slate-700">
+                <div class="flex justify-between py-0.5">
                   <span id="lbl-view-subtotal" class="text-slate-600 font-medium">Total Freight Amount:</span>
-                  <span id="view-subtotal" class="font-bold text-slate-900 font-mono">₹0.00</span>
+                  <span id="view-subtotal" class="font-bold text-slate-900 font-mono whitespace-nowrap">₹0.00</span>
                 </div>
 
-                <div id="row-discount" class="flex justify-between py-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded">
+                <div id="row-discount" class="flex justify-between py-0.5 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
                   <span id="view-discount-label">Deductions:</span>
-                  <span id="view-discount" class="font-mono">-₹0.00</span>
+                  <span id="view-discount" class="font-mono whitespace-nowrap">-₹0.00</span>
                 </div>
 
-                <!-- GST Tax Rows (Only in GST mode) -->
-                <div id="row-cgst" class="hidden flex justify-between py-1 text-slate-700 border-t border-slate-100">
+                <!-- GST Tax Rows -->
+                <div id="row-cgst" class="hidden flex justify-between py-0.5 text-slate-700 border-t border-slate-100">
                   <span id="view-cgst-label">CGST (2.5%):</span>
-                  <span id="view-cgst-val" class="font-mono">₹0.00</span>
+                  <span id="view-cgst-val" class="font-mono whitespace-nowrap">₹0.00</span>
                 </div>
-                <div id="row-sgst" class="hidden flex justify-between py-1 text-slate-700">
+                <div id="row-sgst" class="hidden flex justify-between py-0.5 text-slate-700">
                   <span id="view-sgst-label">SGST (2.5%):</span>
-                  <span id="view-sgst-val" class="font-mono">₹0.00</span>
+                  <span id="view-sgst-val" class="font-mono whitespace-nowrap">₹0.00</span>
                 </div>
-                <div id="row-igst" class="hidden flex justify-between py-1 text-slate-700 border-t border-slate-100">
+                <div id="row-igst" class="hidden flex justify-between py-0.5 text-slate-700 border-t border-slate-100">
                   <span id="view-igst-label">IGST (5%):</span>
-                  <span id="view-igst-val" class="font-mono">₹0.00</span>
+                  <span id="view-igst-val" class="font-mono whitespace-nowrap">₹0.00</span>
                 </div>
 
-                <div id="row-advance" class="flex justify-between py-1 text-rose-600 hidden font-medium">
+                <div id="row-advance" class="flex justify-between py-0.5 text-rose-600 hidden font-medium">
                   <span>Advance Received:</span>
-                  <span id="view-advance" class="font-mono">-₹0.00</span>
+                  <span id="view-advance" class="font-mono whitespace-nowrap">-₹0.00</span>
                 </div>
-                <div id="row-roundoff" class="flex justify-between py-1 text-slate-500">
+                <div id="row-roundoff" class="flex justify-between py-0.5 text-slate-500">
                   <span>Round-off:</span>
-                  <span id="view-roundoff" class="font-mono">₹0.00</span>
+                  <span id="view-roundoff" class="font-mono whitespace-nowrap">₹0.00</span>
                 </div>
 
-                <div class="flex justify-between py-2 border-t-2 border-slate-900 text-sm font-bold text-slate-900 bg-slate-100 px-2.5 rounded-lg">
+                <div class="flex justify-between py-1.5 border-t-2 border-slate-900 text-xs font-bold text-slate-900 bg-slate-100 px-2.5 rounded-lg">
                   <span id="lbl-view-grand-total">Net Freight Due:</span>
-                  <span id="view-grand-total" class="text-base text-indigo-700 font-mono">₹0.00</span>
+                  <span id="view-grand-total" class="text-sm text-indigo-700 font-mono whitespace-nowrap">₹0.00</span>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- FOOTER NOTE -->
-          <div class="mt-6 pt-3 border-t border-slate-100 text-center text-[10px] text-slate-400">
+          <div class="mt-4 pt-2 border-t border-slate-100 text-center text-[9.5px] text-slate-400">
             <p id="view-footer-note">This is a verified Freight Summary Sheet of all trips and shipments dispatched.</p>
           </div>
 
@@ -859,13 +882,13 @@
     </div>
   </div>
 
-  <!-- BUSINESS SETTINGS MODAL -->
+  <!-- BUSINESS SETTINGS & LOGO MODAL -->
   <div id="modal-settings" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
     <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden shadow-2xl border border-slate-200">
       <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
         <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
           <i data-lucide="store" class="w-4 h-4 text-indigo-600"></i>
-          <span>Business & Transporter Profile</span>
+          <span>Business Profile & Company Logo</span>
         </h3>
         <button id="btn-close-settings" class="text-slate-400 hover:text-slate-600">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -873,6 +896,32 @@
       </div>
 
       <form id="form-settings" class="p-5 space-y-3 text-xs">
+        
+        <!-- COMPANY LOGO UPLOAD SECTION -->
+        <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2">
+          <label class="block font-semibold text-indigo-950 text-[11px] flex items-center gap-1.5">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Company Logo (PNG, JPG, SVG, WebP)</span>
+          </label>
+          
+          <input type="file" id="cfg-logo-input" accept="image/*" class="hidden">
+          
+          <div class="flex items-center gap-3">
+            <div id="cfg-logo-preview-box" class="w-20 h-14 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img id="cfg-logo-preview" src="" alt="Logo Preview" class="hidden max-h-full max-w-full object-contain">
+              <span id="cfg-logo-placeholder" class="text-[9.5px] text-slate-400 text-center px-1">No Logo</span>
+            </div>
+            <div class="space-y-1.5">
+              <button type="button" id="btn-choose-logo" class="px-3 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold rounded-md text-[11px] shadow-xs">
+                Choose Logo
+              </button>
+              <button type="button" id="btn-remove-logo" class="hidden px-2 py-1 text-rose-600 hover:text-rose-700 font-medium text-[10.5px]">
+                Remove Logo
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div>
           <label class="block font-medium text-slate-600 mb-1">Company / Transporter Name *</label>
           <input type="text" id="cfg-name" required class="w-full border border-slate-300 rounded-lg p-2 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
@@ -935,7 +984,7 @@
     </div>
   </div>
 
-  <!-- APPLICATION LOGIC & STYLED EXCEL / PRINT ENGINE -->
+  <!-- APPLICATION SCRIPT LOGIC -->
   <script>
     if (window.lucide) lucide.createIcons();
 
@@ -978,7 +1027,8 @@
         counter: 101,
         bank: 'ICICI Bank - A/c: 012305009988',
         ifsc: 'ICIC0000123',
-        upi: 'apexlogistics@icici'
+        upi: 'apexlogistics@icici',
+        logo: '' // Base64 Data URL
       },
       clientProfiles: [],
       activeClient: { name: '', contactPerson: '', phone: '', address: '', gstin: '', pan: '' },
@@ -1031,6 +1081,7 @@
       }
       refreshClientQuickList();
       applyBizSettingsToUI();
+      applyLogoToUI();
     }
 
     function saveSettings() {
@@ -1039,6 +1090,39 @@
 
     function saveClientProfilesToStorage() {
       localStorage.setItem('billcraft_freight_clients', JSON.stringify(STATE.clientProfiles));
+    }
+
+    function applyLogoToUI() {
+      const logoData = STATE.biz.logo || '';
+      const vFreightLogo = document.getElementById('view-freight-logo');
+      const vGstLogo = document.getElementById('view-gst-logo');
+      const previewImg = document.getElementById('cfg-logo-preview');
+      const placeholder = document.getElementById('cfg-logo-placeholder');
+      const btnRemove = document.getElementById('btn-remove-logo');
+
+      if (logoData) {
+        vFreightLogo.src = logoData;
+        vFreightLogo.classList.remove('hidden');
+
+        vGstLogo.src = logoData;
+        vGstLogo.classList.remove('hidden');
+
+        previewImg.src = logoData;
+        previewImg.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        btnRemove.classList.remove('hidden');
+      } else {
+        vFreightLogo.src = '';
+        vFreightLogo.classList.add('hidden');
+
+        vGstLogo.src = '';
+        vGstLogo.classList.add('hidden');
+
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        btnRemove.classList.add('hidden');
+      }
     }
 
     function applyBizSettingsToUI() {
@@ -1079,6 +1163,32 @@
       document.getElementById('view-invoice-no').innerText = STATE.metadata.invoiceNo;
     }
 
+    // Logo Upload Handlers
+    const logoInput = document.getElementById('cfg-logo-input');
+    document.getElementById('btn-choose-logo').onclick = () => logoInput.click();
+    logoInput.onchange = function(e) {
+      if (this.files && this.files[0]) {
+        const file = this.files[0];
+        if (file.size > 2 * 1024 * 1024) {
+          alert('Logo size should ideally be under 2MB.');
+        }
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          STATE.biz.logo = evt.target.result;
+          applyLogoToUI();
+          saveSettings();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    document.getElementById('btn-remove-logo').onclick = () => {
+      STATE.biz.logo = '';
+      logoInput.value = '';
+      applyLogoToUI();
+      saveSettings();
+    };
+
     const settingsModal = document.getElementById('modal-settings');
     document.getElementById('btn-open-settings').onclick = () => settingsModal.classList.remove('hidden');
     document.getElementById('btn-close-settings').onclick = () => settingsModal.classList.add('hidden');
@@ -1101,7 +1211,7 @@
       settingsModal.classList.add('hidden');
     };
 
-    // SWITCH BILLING MODE: FREIGHT SUMMARY VS GST TAX INVOICE
+    // Mode Switch
     const btnModeFreight = document.getElementById('mode-btn-freight');
     const btnModeGst = document.getElementById('mode-btn-gst');
     const headerFormatBadge = document.getElementById('header-format-badge');
@@ -1196,7 +1306,7 @@
       saveSettings();
     };
 
-    // A4 ORIENTATION SWITCHER
+    // A4 ORIENTATION
     const btnOrientPortrait = document.getElementById('btn-orient-portrait');
     const btnOrientLandscape = document.getElementById('btn-orient-landscape');
     const printStyleSheet = document.getElementById('print-orientation-style');
@@ -1811,6 +1921,7 @@
 
       detectZeroAmountEntries();
       detectDuplicateEntries();
+
       renderDynamicPreviewTable();
       calculateTotals();
     }
@@ -1942,19 +2053,19 @@
       document.getElementById('zero-amount-alert').classList.add('hidden');
     };
 
-    // RENDER DYNAMIC TABLE WITH RELIABLE PRINT/PDF TEXT ELEMENTS
+    // RENDER DYNAMIC TABLE WITH SINGLE-LINE FORMATTING AND CRISP PRINT RENDERING
     function renderDynamicPreviewTable() {
       const thead = document.getElementById('table-dynamic-head');
       const tbody = document.getElementById('table-dynamic-body');
       const activeCols = STATE.orderedColumns.filter(c => c.selected);
 
       let thHTML = `
-        <th class="py-2.5 px-2 w-8 text-center no-print">Inc</th>
-        <th class="py-2.5 px-2 w-10 text-center font-mono">#</th>
+        <th class="py-2 px-1.5 w-8 text-center no-print">Inc</th>
+        <th class="py-2 px-1.5 w-9 text-center font-mono">#</th>
       `;
 
       if (activeCols.length === 0) {
-        thHTML += `<th class="py-2.5 px-2 text-rose-500 italic">No columns selected! Check Step 3.</th>`;
+        thHTML += `<th class="py-2 px-2 text-rose-500 italic">No columns selected! Check Step 3.</th>`;
       } else {
         activeCols.forEach(col => {
           const isSumCol = col.name === STATE.mappings.sumCol;
@@ -1972,15 +2083,18 @@
           }
 
           thHTML += `
-            <th class="py-2 px-2.5 ${isNumeric ? 'text-right' : 'text-left'} ${bgClass}">
+            <th class="py-2 px-2 ${isNumeric ? 'text-right' : 'text-left'} ${bgClass}">
               ${escapeHTML(col.name)}${colTag}
             </th>
           `;
         });
       }
 
-      thHTML += `<th class="py-2.5 px-2 w-8 no-print"></th>`;
+      thHTML += `<th class="py-2 px-1.5 w-7 no-print"></th>`;
       thead.innerHTML = thHTML;
+
+      const sumColLabel = STATE.mappings.sumCol === '__CALC__' ? 'Rate × Qty' : (STATE.mappings.sumCol || 'Column Sum');
+      document.getElementById('view-sum-col-name').innerText = sumColLabel;
 
       if (!STATE.currentCustomerRows || STATE.currentCustomerRows.length === 0) {
         tbody.innerHTML = `
@@ -2010,18 +2124,18 @@
 
         tbodyHTML += `
           <tr class="border-b border-slate-200 hover:bg-slate-50/70 transition-colors ${rowHighlight}">
-            <td class="py-2 px-2 text-center no-print">
+            <td class="py-1.5 px-1.5 text-center no-print">
               <input type="checkbox" data-id="${row.id}" class="row-inc-chk w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer" ${row.included ? 'checked' : ''}>
             </td>
-            <td class="py-2 px-2 text-center font-mono text-slate-500 text-[11px] whitespace-nowrap">
+            <td class="py-1.5 px-1.5 text-center font-mono text-slate-500 text-[10.5px] whitespace-nowrap">
               ${rIdx + 1}
-              ${isDuplicateCopy ? '<span class="ml-1 text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold uppercase no-print">Dup</span>' : ''}
-              ${isDuplicateOriginal ? '<span class="ml-1 text-[9px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-bold uppercase no-print">Orig</span>' : ''}
+              ${isDuplicateCopy ? '<span class="ml-0.5 text-[8.5px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-bold uppercase no-print">Dup</span>' : ''}
+              ${isDuplicateOriginal ? '<span class="ml-0.5 text-[8.5px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-bold uppercase no-print">Orig</span>' : ''}
             </td>
         `;
 
         if (activeCols.length === 0) {
-          tbodyHTML += `<td class="py-2 px-2 text-slate-400 italic">Columns hidden</td>`;
+          tbodyHTML += `<td class="py-1.5 px-2 text-slate-400 italic">Columns hidden</td>`;
         } else {
           activeCols.forEach(col => {
             const rawVal = row.data[col.name] !== undefined ? row.data[col.name] : '';
@@ -2029,20 +2143,31 @@
             const isDiscCol = col.name === (document.getElementById('map-discount-col')?.value || STATE.mappings.discountCol);
             const isNumeric = isSumCol || isDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
 
+            let cellBg = '';
+            if (isSumCol) {
+              if (row.computedAmount === 0) {
+                cellBg = 'bg-rose-100/80 font-bold text-rose-700 border border-rose-300 rounded px-1';
+              } else {
+                cellBg = 'bg-amber-50/30 font-semibold text-slate-900';
+              }
+            } else if (isDiscCol) {
+              cellBg = 'bg-emerald-50/30 font-semibold text-emerald-800';
+            }
+
             tbodyHTML += `
-              <td class="py-2 px-2.5 ${isNumeric ? 'text-right font-mono' : 'text-left'}">
-                <!-- PRINT CRITICAL: Visible only in print to ensure complete data visibility -->
-                <span class="print-cell-text hidden">${escapeHTML(String(rawVal))}</span>
+              <td class="py-1.5 px-2 ${isNumeric ? 'text-right font-mono whitespace-nowrap' : 'text-left'}">
+                <!-- PRINT CRITICAL: Clean single-line text view in PDF -->
+                <span class="print-cell-text hidden ${isNumeric ? 'is-num-text whitespace-nowrap' : ''}">${escapeHTML(String(rawVal))}</span>
                 <!-- ON SCREEN EDITABLE INPUT -->
                 <input type="text" data-id="${row.id}" data-col="${escapeHTML(col.name)}" value="${escapeHTML(String(rawVal))}" 
-                  class="cell-edit-input bg-transparent w-full ${isNumeric ? 'text-right' : 'text-left'} focus:bg-white focus:ring-1 focus:ring-indigo-400 rounded px-1 text-slate-800">
+                  class="cell-edit-input bg-transparent w-full ${isNumeric ? 'text-right font-mono whitespace-nowrap' : 'text-left'} focus:bg-white focus:ring-1 focus:ring-indigo-400 rounded px-1 text-slate-800 text-[11px]">
               </td>
             `;
           });
         }
 
         tbodyHTML += `
-            <td class="py-2 px-2 text-center no-print">
+            <td class="py-1.5 px-1 text-center no-print">
               <button data-id="${row.id}" class="btn-del-row text-slate-300 hover:text-rose-500 transition-colors">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
@@ -2296,7 +2421,7 @@
     document.getElementById('calc-advance').oninput = calculateTotals;
     document.getElementById('calc-round-off').onchange = calculateTotals;
 
-    // PRINT / SAVE AS PDF (FIXED DATA BINDING)
+    // PRINT / SAVE AS PDF (SINGLE ROW FIT)
     document.getElementById('btn-print').onclick = () => {
       const party = STATE.activeClient.name || STATE.selectedCustomer;
       if (!party) {
@@ -2367,9 +2492,9 @@
             ${escapeHTML(bill.customerName)}
             <span class="text-[9px] px-1 py-0.2 rounded font-mono uppercase ml-1 ${bill.mode === 'gst' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}">${bill.mode}</span>
           </td>
-          <td class="py-2.5 px-3 text-right font-mono">${formatInr(bill.subtotal)}</td>
-          <td class="py-2.5 px-3 text-right font-mono text-emerald-600">${bill.discount > 0 ? '-' + formatInr(bill.discount) : '₹0.00'}</td>
-          <td class="py-2.5 px-3 text-right font-mono font-bold text-indigo-700">${formatInr(bill.finalAmount)}</td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap">${formatInr(bill.subtotal)}</td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap text-emerald-600">${bill.discount > 0 ? '-' + formatInr(bill.discount) : '₹0.00'}</td>
+          <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap font-bold text-indigo-700">${formatInr(bill.finalAmount)}</td>
           <td class="py-2.5 px-2 text-center">
             <button data-idx="${idx}" class="btn-remove-logged text-slate-300 hover:text-rose-500">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -2384,9 +2509,9 @@
           <td colspan="3" class="py-3 px-3 text-right font-bold text-slate-900 uppercase tracking-wider">
             TOTAL OF EACH COLUMN:
           </td>
-          <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">${formatInr(totalSubtotal)}</td>
-          <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">-${formatInr(totalDiscount)}</td>
-          <td class="py-3 px-3 text-right font-mono font-bold text-indigo-900 text-sm">${formatInr(totalFinal)}</td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">${formatInr(totalSubtotal)}</td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">-${formatInr(totalDiscount)}</td>
+          <td class="py-3 px-3 text-right font-mono font-bold text-indigo-900 text-sm whitespace-nowrap">${formatInr(totalFinal)}</td>
           <td></td>
         </tr>
       `;
