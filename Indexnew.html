@@ -28,16 +28,16 @@
 
     /* Print & PDF Layout Rules */
     @media print {
-      /* Force body and parents into standard block flow to allow multi-page printing */
       html, body {
         background: #ffffff !important;
         color: #000000 !important;
         margin: 0 !important;
         padding: 0 !important;
-        font-size: 10px !important;
+        font-size: 9.5px !important;
+        width: 100% !important;
       }
 
-      /* Hide all UI sidebars, modals and buttons */
+      /* Hide web UI controls */
       header,
       .no-print,
       #zero-amount-alert,
@@ -49,7 +49,7 @@
         display: none !important;
       }
 
-      /* Reset grid and overflow wrappers that cause blank pages in Chromium */
+      /* Reset grid and overflow wrappers so Chrome doesn't collapse the table */
       main,
       main > div,
       .grid,
@@ -78,34 +78,33 @@
         min-height: auto !important;
       }
 
-      /* Force background colors and exact border rendering */
       * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
-      /* Compact table styling for single-line fit */
+      /* Table structure for multi-page print */
       .invoice-table {
         width: 100% !important;
         border-collapse: collapse !important;
         table-layout: auto !important;
-        font-size: 9px !important;
+        font-size: 8.5px !important;
         line-height: 1.25 !important;
       }
 
       .invoice-table th {
-        padding: 4px 5px !important;
+        padding: 3px 5px !important;
         border: 1px solid #94a3b8 !important;
-        font-size: 8.5px !important;
+        font-size: 8px !important;
         white-space: nowrap !important;
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
       }
 
       .invoice-table td {
-        padding: 3px 5px !important;
+        padding: 2.5px 4px !important;
         border: 1px solid #cbd5e1 !important;
-        font-size: 9px !important;
+        font-size: 8.5px !important;
         color: #0f172a !important;
       }
 
@@ -117,7 +116,6 @@
         page-break-inside: avoid !important;
       }
 
-      /* Clean contenteditable cell view */
       .cell-editable {
         outline: none !important;
         border: none !important;
@@ -251,16 +249,16 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <label class="block text-slate-500 font-medium mb-1">Party / Customer Column *</label>
+              <label class="block text-slate-500 font-medium mb-1">Party / Customer Column</label>
               <select id="map-customer-col" class="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
             </div>
             <div>
-              <label class="block text-slate-500 font-medium mb-1">Select Party to View *</label>
+              <label class="block text-slate-500 font-medium mb-1">Select Party to Filter</label>
               <select id="customer-select" class="w-full border border-slate-300 rounded-lg p-2 bg-white font-semibold text-indigo-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
             </div>
           </div>
 
-          <!-- THE WANTED COLUMN TO SUM (NOW DYNAMICALLY WIRED) -->
+          <!-- THE WANTED COLUMN TO SUM -->
           <div class="border-t border-slate-100 pt-3 space-y-2">
             <div class="bg-amber-50/80 border border-amber-300 rounded-xl p-3">
               <div class="flex items-center justify-between mb-1">
@@ -270,7 +268,7 @@
                 </div>
               </div>
               <p class="text-[11px] text-amber-800 leading-relaxed mb-2 font-medium">
-                Choose the column whose values should be summed up to form the <strong>Total Freight Amount</strong>.
+                Choose the column whose values will be summed up to form the <strong>Total Freight Amount</strong>.
               </p>
               <select id="map-sum-col" class="w-full border border-amber-400 rounded-lg p-2 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-xs"></select>
             </div>
@@ -569,7 +567,7 @@
             </button>
             <button id="btn-print" class="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-indigo-200 transition-all">
               <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-              <span>Print / PDF</span>
+              <span>Print / Save PDF</span>
             </button>
           </div>
         </div>
@@ -598,7 +596,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button id="btn-open-dup-config" class="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition-colors flex items-center gap-1">
-              <i data-lucide="sliders" class="w-3 h-3 text-amber-600"></i> Match Columns
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Match Columns
             </button>
             <button id="btn-exclude-dup-copies" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-lg font-semibold text-[11px] shadow-xs transition-colors">
               ⚡ Keep 1st & Exclude Copies
@@ -610,11 +608,11 @@
         <div id="printable-invoice" class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-lg min-h-[750px] flex flex-col justify-between text-slate-800 transition-all">
           
           <div>
-            <!-- FREIGHT SUMMARY HEADER (CLEAN NO-INVOICE LAYOUT) -->
+            <!-- FREIGHT SUMMARY HEADER (SIMPLIFIED & ELEGANT) -->
             <div id="header-freight-mode" class="border-b-2 border-slate-900 pb-4 mb-4">
               <div class="flex justify-between items-start gap-4">
                 <div class="flex items-start gap-3.5">
-                  <img id="view-freight-logo" src="" alt="Company Logo" class="hidden max-h-16 max-w-[150px] object-contain rounded-md border border-slate-200 p-1 flex-shrink-0">
+                  <img id="view-freight-logo" src="" alt="Company Logo" class="hidden max-h-14 max-w-[140px] object-contain rounded-md border border-slate-200 p-0.5 flex-shrink-0">
                   <div>
                     <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">FREIGHT SUMMARY SHEET</h1>
                     <h2 id="view-freight-biz-name" class="text-base font-bold text-indigo-700 mt-0.5">Apex Logistics & Transport Services</h2>
@@ -645,7 +643,7 @@
             <div id="header-gst-mode" class="hidden border-b-2 border-slate-900 pb-5 mb-5">
               <div class="flex justify-between items-start gap-4">
                 <div class="flex items-start gap-3.5 flex-1">
-                  <img id="view-gst-logo" src="" alt="Company Logo" class="hidden max-h-16 max-w-[150px] object-contain rounded-md border border-slate-200 p-1 flex-shrink-0">
+                  <img id="view-gst-logo" src="" alt="Company Logo" class="hidden max-h-14 max-w-[140px] object-contain rounded-md border border-slate-200 p-0.5 flex-shrink-0">
                   <div>
                     <span class="inline-block text-[10px] font-bold tracking-wider uppercase bg-slate-900 text-white px-2.5 py-0.5 rounded mb-1.5">TAX INVOICE</span>
                     <h2 id="view-biz-name" class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Apex Logistics & Transport Services</h2>
@@ -689,7 +687,7 @@
             <div id="view-billed-to-card" class="mb-3.5 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap justify-between items-start gap-4">
               <div class="space-y-0.5 max-w-lg">
                 <span id="lbl-party-heading" class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Party / Consignor:</span>
-                <p id="view-customer-name" class="text-sm font-bold text-slate-900">No Party Selected</p>
+                <p id="view-customer-name" class="text-sm font-bold text-slate-900">All Parties / Consolidated Bookings</p>
                 <p id="view-client-contact" class="text-xs text-slate-600 hidden"></p>
                 <p id="view-client-address" class="text-xs text-slate-500 whitespace-pre-line leading-relaxed hidden"></p>
                 <div id="view-client-tax-ids" class="flex flex-wrap gap-2 text-xs font-mono font-medium pt-0.5 hidden">
@@ -1015,18 +1013,29 @@
       return words + ' Only';
     }
 
-    // ROBUST NUMBER PARSER
+    // ROBUST NUMBER PARSER (STRIPS RUPEES, COMMAS, DASHES & HANDLES NEGATIVES)
     function parseCleanNumber(val) {
       if (val === null || val === undefined) return 0;
       if (typeof val === 'number') return isNaN(val) ? 0 : val;
-      const str = String(val).trim();
+      let str = String(val).trim();
       if (!str) return 0;
       let isNeg = false;
-      if (str.startsWith('(') && str.endsWith(')')) isNeg = true;
+      if ((str.startsWith('(') && str.endsWith(')')) || str.startsWith('-')) {
+        isNeg = true;
+      }
       let clean = str.replace(/[^0-9.]/g, '');
       let num = parseFloat(clean);
       if (isNaN(num)) return 0;
       return isNeg ? -num : num;
+    }
+
+    // HELPER: CASE-INSENSITIVE KEY LOOKUP TO PREVENT HEADER MISMATCH
+    function getCleanRowValue(rowData, colName) {
+      if (!rowData || !colName) return '';
+      if (rowData[colName] !== undefined) return rowData[colName];
+      const target = String(colName).trim().toLowerCase();
+      const matchedKey = Object.keys(rowData).find(k => k.trim().toLowerCase() === target);
+      return matchedKey ? rowData[matchedKey] : '';
     }
 
     const STATE = {
@@ -1067,7 +1076,7 @@
       duplicateColumns: [],
       mappings: { customerCol: '', sumCol: '', discountCol: '', rateCol: '', qtyCol: '', dateCol: '' },
       customers: [],
-      selectedCustomer: null,
+      selectedCustomer: '__ALL__', // DEFAULT: ALL ENTRIES
       currentCustomerRows: [],
       metadata: {
         invoiceNo: 'FS-101',
@@ -1378,7 +1387,13 @@
       const viewGstin = document.getElementById('view-client-gstin');
       const viewPan = document.getElementById('view-client-pan');
 
-      viewName.innerText = name || STATE.selectedCustomer || 'No Party Selected';
+      if (name) {
+        viewName.innerText = name;
+      } else if (STATE.selectedCustomer && STATE.selectedCustomer !== '__ALL__') {
+        viewName.innerText = STATE.selectedCustomer;
+      } else {
+        viewName.innerText = 'All Parties / Consolidated Bookings';
+      }
 
       let hasExtra = false;
       if (person || phone) {
@@ -1425,7 +1440,7 @@
 
     document.getElementById('btn-save-current-client').onclick = () => {
       const name = document.getElementById('client-firm-name').value.trim() || STATE.selectedCustomer;
-      if (!name) {
+      if (!name || name === '__ALL__') {
         alert('Please enter a Party / Client name first.');
         return;
       }
@@ -1476,7 +1491,7 @@
       syncClientProfileUI();
     };
 
-    // FILE PICKER (GUARANTEED NO RECURSION)
+    // FILE PICKER
     const fileInput = document.getElementById('excel-file-input');
     const dropZone = document.getElementById('drop-zone');
     const btnBrowse = document.getElementById('btn-browse-file');
@@ -1608,7 +1623,16 @@
         return;
       }
 
-      loadRawDataset(json, fileName);
+      // NORMALIZE KEYS TO STRIP UNWANTED SPACES
+      const normalizedJson = json.map(row => {
+        const clean = {};
+        Object.keys(row).forEach(k => {
+          clean[String(k).trim()] = row[k];
+        });
+        return clean;
+      });
+
+      loadRawDataset(normalizedJson, fileName);
     }
 
     function loadRawDataset(data, filename) {
@@ -1800,12 +1824,13 @@
       renderDynamicPreviewTable();
     };
 
+    // EXTRACT PARTIES WITH DEFAULT: ALL ENTRIES
     function extractUniqueCustomers() {
       const custCol = STATE.mappings.customerCol;
       const set = new Set();
       
       STATE.rawExcelData.forEach(row => {
-        const val = (row[custCol] || '').toString().trim();
+        const val = (getCleanRowValue(row, custCol) || '').toString().trim();
         if (val) set.add(val);
       });
 
@@ -1813,16 +1838,14 @@
       document.getElementById('customer-count-badge').innerText = `${STATE.customers.length} found`;
 
       const sel = document.getElementById('customer-select');
-      if (STATE.customers.length === 0) {
-        sel.innerHTML = '<option value="">No party found</option>';
-        return;
-      }
+      
+      // ALWAYS INCLUDE "ALL ENTRIES IN FILE" OPTION AND DEFAULT TO IT
+      let opts = `<option value="__ALL__">-- All Entries in File (${STATE.rawExcelData.length} records) --</option>`;
+      opts += STATE.customers.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+      sel.innerHTML = opts;
 
-      sel.innerHTML = '<option value="">-- Choose Party --</option>' + 
-        STATE.customers.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
-
-      sel.value = STATE.customers[0];
-      handleCustomerSelect(STATE.customers[0]);
+      sel.value = '__ALL__';
+      handleCustomerSelect('__ALL__');
     }
 
     document.getElementById('customer-select').onchange = (e) => {
@@ -1830,17 +1853,20 @@
     };
 
     function handleCustomerSelect(custName) {
-      STATE.selectedCustomer = custName;
-      document.getElementById('client-firm-name').value = custName || '';
-
-      const matchedProfile = STATE.clientProfiles.find(c => c.name.toLowerCase() === (custName || '').toLowerCase());
-      if (matchedProfile) {
-        document.getElementById('client-contact-person').value = matchedProfile.contactPerson || '';
-        document.getElementById('client-phone').value = matchedProfile.phone || '';
-        document.getElementById('client-address').value = matchedProfile.address || '';
-        document.getElementById('client-gstin').value = matchedProfile.gstin || '';
-        document.getElementById('client-pan').value = matchedProfile.pan || '';
+      STATE.selectedCustomer = custName || '__ALL__';
+      
+      if (custName && custName !== '__ALL__') {
+        document.getElementById('client-firm-name').value = custName;
+        const matchedProfile = STATE.clientProfiles.find(c => c.name.toLowerCase() === custName.toLowerCase());
+        if (matchedProfile) {
+          document.getElementById('client-contact-person').value = matchedProfile.contactPerson || '';
+          document.getElementById('client-phone').value = matchedProfile.phone || '';
+          document.getElementById('client-address').value = matchedProfile.address || '';
+          document.getElementById('client-gstin').value = matchedProfile.gstin || '';
+          document.getElementById('client-pan').value = matchedProfile.pan || '';
+        }
       }
+
       syncClientProfileUI();
       refreshCustomerRowsAndTable();
     }
@@ -1888,33 +1914,31 @@
 
     document.getElementById('btn-autofill-dates').onclick = () => autoDetectDatesFromCustomerRows();
 
-    // DYNAMIC DATA PARSING & ROW BUILDING
+    // REFRESH ROWS WITH CLEAN NORMALIZED PARSING
     function refreshCustomerRowsAndTable() {
-      if (!STATE.selectedCustomer) {
-        STATE.currentCustomerRows = [];
-        renderDynamicPreviewTable();
-        calculateTotals();
-        return;
+      let matched = [];
+      if (!STATE.selectedCustomer || STATE.selectedCustomer === '__ALL__') {
+        matched = STATE.rawExcelData;
+      } else {
+        const custCol = STATE.mappings.customerCol;
+        matched = STATE.rawExcelData.filter(row => 
+          (getCleanRowValue(row, custCol) || '').toString().trim().toLowerCase() === STATE.selectedCustomer.toLowerCase()
+        );
       }
 
-      const custCol = STATE.mappings.customerCol;
       const sumCol = document.getElementById('map-sum-col')?.value || STATE.mappings.sumCol;
       const rateCol = STATE.mappings.rateCol;
       const qtyCol = STATE.mappings.qtyCol;
-
-      const matched = STATE.rawExcelData.filter(row => 
-        (row[custCol] || '').toString().trim() === STATE.selectedCustomer
-      );
 
       STATE.currentCustomerRows = matched.map((rawRow, idx) => {
         const rowData = { ...rawRow };
         let computedAmount = 0;
 
-        if (sumCol && sumCol !== '__CALC__' && rowData[sumCol] !== undefined) {
-          computedAmount = parseCleanNumber(rowData[sumCol]);
+        if (sumCol && sumCol !== '__CALC__') {
+          computedAmount = parseCleanNumber(getCleanRowValue(rowData, sumCol));
         } else if (rateCol && qtyCol) {
-          const q = parseCleanNumber(rowData[qtyCol]) || 1;
-          const r = parseCleanNumber(rowData[rateCol]) || 0;
+          const q = parseCleanNumber(getCleanRowValue(rowData, qtyCol)) || 1;
+          const r = parseCleanNumber(getCleanRowValue(rowData, rateCol)) || 0;
           computedAmount = q * r;
         }
 
@@ -1961,7 +1985,7 @@
 
       STATE.currentCustomerRows.forEach(row => {
         const compositeKey = STATE.duplicateColumns
-          .map(col => String(row.data[col] ?? '').trim().toLowerCase())
+          .map(col => String(getCleanRowValue(row.data, col) ?? '').trim().toLowerCase())
           .join('__||__');
 
         if (!keyMap[compositeKey]) keyMap[compositeKey] = [];
@@ -2150,7 +2174,7 @@
           tbodyHTML += `<td class="py-1 px-2 text-slate-400 italic">Columns hidden</td>`;
         } else {
           activeCols.forEach(col => {
-            const rawVal = row.data[col.name] !== undefined ? row.data[col.name] : '';
+            const rawVal = getCleanRowValue(row.data, col.name);
             const isSumCol = col.name === activeSumCol;
             const isDiscCol = col.name === activeDiscCol;
             const isNumeric = isSumCol || isDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
@@ -2168,7 +2192,6 @@
 
             tbodyHTML += `
               <td class="py-1 px-2 ${isNumeric ? 'text-right font-mono whitespace-nowrap num-val' : 'text-left'}">
-                <!-- Contenteditable div: 100% visible in print, PDF and editable on screen -->
                 <div contenteditable="true" data-id="${row.id}" data-col="${escapeHTML(col.name)}" 
                   class="cell-editable ${cellBg} px-1 py-0.5 rounded outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500">
                   ${escapeHTML(String(rawVal))}
@@ -2224,8 +2247,8 @@
           if (col === sumCol && sumCol !== '__CALC__') {
             row.computedAmount = parseCleanNumber(newVal);
           } else if (sumCol === '__CALC__' || col === rateCol || col === qtyCol) {
-            const q = parseCleanNumber(row.data[qtyCol]) || 1;
-            const r = parseCleanNumber(row.data[rateCol]) || 0;
+            const q = parseCleanNumber(getCleanRowValue(row.data, qtyCol)) || 1;
+            const r = parseCleanNumber(getCleanRowValue(row.data, rateCol)) || 0;
             row.computedAmount = q * r;
             if (sumCol && sumCol !== '__CALC__') row.data[sumCol] = row.computedAmount;
           }
@@ -2259,7 +2282,7 @@
       if (discCol) newObj[discCol] = 0;
       if (STATE.mappings.rateCol) newObj[STATE.mappings.rateCol] = 5000;
       if (STATE.mappings.qtyCol) newObj[STATE.mappings.qtyCol] = 1;
-      if (STATE.mappings.customerCol) newObj[STATE.mappings.customerCol] = STATE.selectedCustomer || 'Party';
+      if (STATE.mappings.customerCol) newObj[STATE.mappings.customerCol] = STATE.selectedCustomer !== '__ALL__' ? STATE.selectedCustomer : 'Party';
 
       STATE.currentCustomerRows.push({
         id: 'custom_' + Date.now(),
@@ -2303,11 +2326,11 @@
       let subtotal = 0;
       includedRows.forEach(r => {
         let rowAmt = 0;
-        if (activeSumCol && activeSumCol !== '__CALC__' && r.data[activeSumCol] !== undefined) {
-          rowAmt = parseCleanNumber(r.data[activeSumCol]);
+        if (activeSumCol && activeSumCol !== '__CALC__') {
+          rowAmt = parseCleanNumber(getCleanRowValue(r.data, activeSumCol));
         } else if (rateCol && qtyCol) {
-          const q = parseCleanNumber(r.data[qtyCol]) || 1;
-          const rateVal = parseCleanNumber(r.data[rateCol]) || 0;
+          const q = parseCleanNumber(getCleanRowValue(r.data, qtyCol)) || 1;
+          const rateVal = parseCleanNumber(getCleanRowValue(r.data, rateCol)) || 0;
           rowAmt = q * rateVal;
         }
         r.computedAmount = rowAmt;
@@ -2324,7 +2347,7 @@
 
       if (discountType === 'column') {
         if (activeDiscCol) {
-          discountAmount = includedRows.reduce((sum, r) => sum + Math.abs(parseCleanNumber(r.data[activeDiscCol])), 0);
+          discountAmount = includedRows.reduce((sum, r) => sum + Math.abs(parseCleanNumber(getCleanRowValue(r.data, activeDiscCol))), 0);
           discountLabelText = `${activeDiscCol} (Deductions):`;
         } else {
           discountAmount = 0;
@@ -2470,7 +2493,7 @@
       const billRecord = {
         invoiceNo: STATE.metadata.invoiceNo,
         date: STATE.metadata.invoiceDate,
-        customerName: clientName,
+        customerName: clientName === '__ALL__' ? 'Consolidated Trips' : clientName,
         mode: STATE.billingMode,
         subtotal: STATE.metadata.subtotal,
         discount: STATE.metadata.discount,
@@ -2809,14 +2832,16 @@
       rows.push(Array(lastColIndex + 1).fill({ v: '' }));
 
       const client = STATE.activeClient;
+      const resolvedPartyName = client.name || (STATE.selectedCustomer !== '__ALL__' ? STATE.selectedCustomer : 'Consolidated Bookings');
+
       if (isFreight) {
         pushSplitMetaRow("SUMMARY DETAILS", "PARTY DETAILS", styleMetaHeader, styleMetaHeader);
-        pushSplitMetaRow(`Ref No: ${STATE.metadata.invoiceNo}`, `Party: ${client.name || STATE.selectedCustomer}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
+        pushSplitMetaRow(`Ref No: ${STATE.metadata.invoiceNo}`, `Party: ${resolvedPartyName}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
         pushSplitMetaRow(`Date: ${STATE.metadata.invoiceDate}`, `Address: ${client.address || 'N/A'}`);
         pushSplitMetaRow(`Period: ${STATE.metadata.periodFrom} to ${STATE.metadata.periodTo}`, `Phone: ${client.phone || 'N/A'}`);
       } else {
         pushSplitMetaRow("INVOICE DETAILS", "BILLED TO", styleMetaHeader, styleMetaHeader);
-        pushSplitMetaRow(`Invoice No: ${STATE.metadata.invoiceNo}`, `Name: ${client.name || STATE.selectedCustomer}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
+        pushSplitMetaRow(`Invoice No: ${STATE.metadata.invoiceNo}`, `Name: ${resolvedPartyName}`, { ...styleMetaCell, font: { bold: true } }, { ...styleMetaCell, font: { bold: true } });
         pushSplitMetaRow(`Date: ${STATE.metadata.invoiceDate}`, `Buyer GSTIN: ${client.gstin || 'Unregistered'}`);
         pushSplitMetaRow(`Place of Supply: ${STATE.gst.placeOfSupply}`, `SAC: ${STATE.gst.hsnSac} | RCM: ${STATE.gst.rcm.toUpperCase()}`);
       }
@@ -2837,7 +2862,7 @@
         const rowCells = [{ v: idx + 1, s: styleDataText, t: 'n' }];
 
         activeCols.forEach(col => {
-          const rawVal = row.data[col.name] !== undefined ? row.data[col.name] : '';
+          const rawVal = getCleanRowValue(row.data, col.name);
           const isNumeric = col.name === activeSumCol || col.name === activeDiscCol || col.name === STATE.mappings.rateCol || col.name === STATE.mappings.qtyCol;
           if (isNumeric) {
             rowCells.push({ v: parseCleanNumber(rawVal), s: styleDataNumeric, t: 'n' });
@@ -2897,7 +2922,7 @@
       activeCols.forEach(col => {
         let maxLen = col.name.length;
         activeRows.forEach(r => {
-          const val = r.data[col.name];
+          const val = getCleanRowValue(r.data, col.name);
           if (val !== undefined && val !== null) {
             const s = String(val).trim();
             if (s.length > maxLen) maxLen = s.length;
@@ -2913,7 +2938,7 @@
       STATE.biz.counter = (parseInt(STATE.biz.counter) || 101) + 1;
       saveSettings();
 
-      const safeCustomer = clientName.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const safeCustomer = (resolvedPartyName).replace(/[^a-zA-Z0-9_-]/g, "_");
       XLSX.writeFile(wb, `${STATE.metadata.invoiceNo}_${safeCustomer}_${isFreight ? 'Freight_Summary' : 'Tax_Invoice'}.xlsx`);
     };
 
