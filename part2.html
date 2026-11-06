@@ -1,0 +1,961 @@
+      <!-- RIGHT PREVIEW & STRUCTURED EXPORT (7 COLS) -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <!-- ACTION BAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm no-print">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="layout-template" class="w-4 h-4 text-indigo-500"></i>
+              <span id="preview-mode-title" class="text-xs font-semibold text-slate-700">Freight Summary Preview</span>
+            </div>
+            
+            <!-- A4 ORIENTATION SWITCHER -->
+            <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
+              <button id="btn-orient-portrait" type="button" class="px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1">
+                <i data-lucide="file-text" class="w-3 h-3"></i> Portrait
+              </button>
+              <button id="btn-orient-landscape" type="button" class="px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1">
+                <i data-lucide="rectangle-horizontal" class="w-3 h-3"></i> Landscape
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btn-add-to-summary" title="Save this sheet to Master Summary list" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition-all">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span class="hidden sm:inline">+ Log to Summary</span>
+            </button>
+            <button id="btn-export-excel" class="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-emerald-200 transition-all">
+              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+              <span>Download Excel</span>
+            </button>
+            <button id="btn-print" class="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-indigo-200 transition-all">
+              <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+              <span>Print / Save PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ZERO AMOUNT DETECTED WARNING BANNER -->
+        <div id="zero-amount-alert" class="hidden bg-rose-50 border-2 border-rose-300 rounded-xl p-3.5 text-xs text-rose-900 flex items-center justify-between shadow-xs no-print">
+          <div class="flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 flex-shrink-0"></i>
+            <span>
+              <strong id="zero-count-text">0 entry</strong> with <strong>₹0.00 Total Amount</strong> detected!
+            </span>
+          </div>
+          <button id="btn-exclude-zero-rows" class="bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg font-semibold text-[11px] shadow-xs transition-colors">
+            ⚡ Exclude All ₹0 Rows
+          </button>
+        </div>
+
+        <!-- DUPLICATE ENTRIES DETECTED WARNING BANNER -->
+        <div id="duplicate-alert" class="hidden bg-amber-50 border-2 border-amber-300 rounded-xl p-3.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2 shadow-xs no-print">
+          <div class="flex items-center gap-2">
+            <i data-lucide="copy" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+            <span>
+              <strong id="dup-count-text">0 duplicate entries</strong> detected based on: 
+              <span id="dup-cols-text" class="font-bold underline decoration-amber-400">None</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-open-dup-config" class="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition-colors flex items-center gap-1">
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Match Columns
+            </button>
+            <button id="btn-exclude-dup-copies" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-lg font-semibold text-[11px] shadow-xs transition-colors">
+              ⚡ Keep 1st & Exclude Copies
+            </button>
+          </div>
+        </div>
+
+        <!-- PRINTABLE SHEET -->
+        <div id="printable-invoice" class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-lg min-h-[750px] flex flex-col justify-between text-slate-800 transition-all">
+          
+          <div>
+            <!-- FREIGHT SUMMARY HEADER (SIMPLIFIED & ELEGANT) -->
+            <div id="header-freight-mode" class="border-b-2 border-slate-900 pb-4 mb-4">
+              <div class="flex justify-between items-start gap-4">
+                <div class="flex items-start gap-3.5">
+                  <img id="view-freight-logo" src="" alt="Company Logo" class="hidden max-h-14 max-w-[140px] object-contain rounded-md border border-slate-200 p-0.5 flex-shrink-0">
+                  <div>
+                    <h1 class="text-2xl font-black text-slate-900 tracking-tight uppercase">FREIGHT SUMMARY SHEET</h1>
+                    <h2 id="view-freight-biz-name" class="text-base font-bold text-indigo-700 mt-0.5">Apex Logistics & Transport Services</h2>
+                    <p id="view-freight-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-0.5 max-w-md leading-relaxed">Plot 42, Green Valley Commercial Hub, Pune, Maharashtra - 411001</p>
+                    <p class="text-xs text-slate-500 mt-1">Phone: <span id="view-freight-biz-phone">+91 98234 56789</span> | Email: <span id="view-freight-biz-email">accounts@apexlogistics.in</span></p>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 inline-block text-left min-w-[190px]">
+                    <div class="mb-1.5">
+                      <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Summary Ref No:</span>
+                      <span id="view-freight-ref-no" class="font-mono text-sm font-bold text-slate-900">FS-101</span>
+                    </div>
+                    <div class="mb-1.5">
+                      <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Date:</span>
+                      <span id="view-freight-date" class="text-xs font-semibold text-slate-800">2026-10-28</span>
+                    </div>
+                    <div>
+                      <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Trip Period:</span>
+                      <span id="view-freight-period" class="text-xs font-semibold text-slate-800">-- to --</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- GST TAX INVOICE HEADER (ONLY IN GST MODE) -->
+            <div id="header-gst-mode" class="hidden border-b-2 border-slate-900 pb-5 mb-5">
+              <div class="flex justify-between items-start gap-4">
+                <div class="flex items-start gap-3.5 flex-1">
+                  <img id="view-gst-logo" src="" alt="Company Logo" class="hidden max-h-14 max-w-[140px] object-contain rounded-md border border-slate-200 p-0.5 flex-shrink-0">
+                  <div>
+                    <span class="inline-block text-[10px] font-bold tracking-wider uppercase bg-slate-900 text-white px-2.5 py-0.5 rounded mb-1.5">TAX INVOICE</span>
+                    <h2 id="view-biz-name" class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Apex Logistics & Transport Services</h2>
+                    <p id="view-biz-address" class="text-xs text-slate-500 whitespace-pre-line mt-0.5 max-w-sm">Plot 42, Green Valley Commercial Hub, Pune, Maharashtra - 411001</p>
+                    <div class="text-xs text-slate-500 mt-1 space-y-0.5">
+                      <p>Phone: <span id="view-biz-phone">+91 98234 56789</span> | Email: <span id="view-biz-email">accounts@apexlogistics.in</span></p>
+                      <p class="text-indigo-900 font-mono font-semibold">GSTIN: <span id="view-supplier-gstin">27AAAAA0000A1Z5</span></p>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 inline-block text-left min-w-[200px]">
+                    <div class="mb-1.5">
+                      <span class="text-[10px] uppercase font-semibold text-slate-400 block">Invoice No:</span>
+                      <span id="view-invoice-no" class="font-mono text-base font-bold text-slate-900">INV-101</span>
+                    </div>
+                    <div class="mb-1.5">
+                      <span class="text-[10px] uppercase font-semibold text-slate-400 block">Date of Issue:</span>
+                      <span id="view-invoice-date" class="text-xs font-semibold text-slate-800">2026-10-28</span>
+                    </div>
+                    <div class="mb-1.5">
+                      <span class="text-[10px] uppercase font-semibold text-slate-400 block">Billing Period:</span>
+                      <span id="view-period" class="text-xs text-slate-600 font-medium">-- to --</span>
+                    </div>
+                    <div class="border-t border-slate-200 pt-1.5 space-y-1 text-[11px]">
+                      <div>
+                        <span class="text-[10px] uppercase font-semibold text-slate-400 block">Place of Supply:</span>
+                        <span id="view-place-of-supply" class="font-semibold text-slate-800">Maharashtra (27)</span>
+                      </div>
+                      <div>
+                        <span class="text-[10px] uppercase font-semibold text-slate-400 block">Reverse Charge (RCM):</span>
+                        <span id="view-rcm-status" class="font-bold text-indigo-700">No</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PARTY / CLIENT SECTION -->
+            <div id="view-billed-to-card" class="mb-3.5 bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap justify-between items-start gap-4">
+              <div class="space-y-0.5 max-w-lg">
+                <span id="lbl-party-heading" class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Party / Consignor:</span>
+                <p id="view-customer-name" class="text-sm font-bold text-slate-900">All Parties / Consolidated Bookings</p>
+                <p id="view-client-contact" class="text-xs text-slate-600 hidden"></p>
+                <p id="view-client-address" class="text-xs text-slate-500 whitespace-pre-line leading-relaxed hidden"></p>
+                <div id="view-client-tax-ids" class="flex flex-wrap gap-2 text-xs font-mono font-medium pt-0.5 hidden">
+                  <span id="view-client-gstin" class="bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 hidden"></span>
+                  <span id="view-client-pan" class="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded border border-slate-200 hidden"></span>
+                </div>
+              </div>
+
+              <div class="text-right no-print">
+                <button id="btn-add-row" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add Custom Row
+                </button>
+              </div>
+            </div>
+
+            <!-- DYNAMIC ITEMS TABLE -->
+            <div class="overflow-x-auto">
+              <table class="invoice-table w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr id="table-dynamic-head" class="border-b-2 border-slate-900 bg-slate-100 text-slate-700 uppercase text-[9px] tracking-wider">
+                    <th class="py-2 px-1.5 w-8 text-center no-print">Inc</th>
+                    <th class="py-2 px-1.5 w-9 text-center font-mono">#</th>
+                    <th class="py-2 px-1.5 w-8 no-print"></th>
+                  </tr>
+                </thead>
+                <tbody id="table-dynamic-body" class="divide-y divide-slate-200 text-slate-800">
+                  <tr>
+                    <td colspan="6" class="text-center py-10 text-slate-400 italic">
+                      Upload an Excel/CSV file or click "Demo Data" to populate table.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- SUMMARY & TOTALS SECTION -->
+            <div class="mt-4 pt-3.5 border-t-2 border-slate-900 flex flex-col sm:flex-row justify-between gap-5">
+              
+              <!-- Left Column: Bank Details & Signatures -->
+              <div class="w-full sm:w-1/2 text-xs space-y-2">
+                <div id="amount-words-box" class="hidden bg-indigo-50/50 border border-indigo-200 rounded-lg p-2">
+                  <span class="text-[9.5px] font-bold uppercase text-indigo-900 block tracking-wider">Amount in Words:</span>
+                  <p id="view-amount-words" class="font-semibold text-slate-800 text-[10.5px] italic mt-0.5">Zero Rupees Only</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <p class="font-semibold text-slate-800 text-[10.5px] mb-0.5">Bank Payment & Transfer Details:</p>
+                  <div class="text-slate-600 space-y-0.5 text-[10px]">
+                    <p><span class="font-medium text-slate-700">Bank Name / A/C:</span> <span id="view-bank-details">ICICI Bank - A/c: 012305009988</span></p>
+                    <p><span class="font-medium text-slate-700">IFSC Code:</span> <span id="view-bank-ifsc">ICIC0000123</span> | <span class="font-medium text-slate-700">UPI ID:</span> <span id="view-upi-id">apexlogistics@icici</span></p>
+                  </div>
+                </div>
+
+                <div id="freight-sign-box" class="pt-5 grid grid-cols-2 gap-4 text-center">
+                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[10px]">Prepared / Checked By</div>
+                  <div class="border-t border-slate-300 pt-1 text-slate-500 text-[10px]">Authorized Signatory</div>
+                </div>
+              </div>
+
+              <!-- Right Column: Calculation Breakdown -->
+              <div class="w-full sm:w-5/12 space-y-1 text-xs text-slate-700">
+                <div class="flex justify-between py-0.5">
+                  <span id="lbl-view-subtotal" class="text-slate-600 font-medium">Total Freight Amount (<span id="view-sum-col-name" class="font-bold text-slate-800">Column Sum</span>):</span>
+                  <span id="view-subtotal" class="font-bold text-slate-900 font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+
+                <div id="row-discount" class="flex justify-between py-0.5 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
+                  <span id="view-discount-label">Deductions:</span>
+                  <span id="view-discount" class="font-mono whitespace-nowrap">-₹0.00</span>
+                </div>
+
+                <!-- GST Tax Rows -->
+                <div id="row-cgst" class="hidden flex justify-between py-0.5 text-slate-700 border-t border-slate-100">
+                  <span id="view-cgst-label">CGST (2.5%):</span>
+                  <span id="view-cgst-val" class="font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+                <div id="row-sgst" class="hidden flex justify-between py-0.5 text-slate-700">
+                  <span id="view-sgst-label">SGST (2.5%):</span>
+                  <span id="view-sgst-val" class="font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+                <div id="row-igst" class="hidden flex justify-between py-0.5 text-slate-700 border-t border-slate-100">
+                  <span id="view-igst-label">IGST (5%):</span>
+                  <span id="view-igst-val" class="font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+
+                <div id="row-advance" class="flex justify-between py-0.5 text-rose-600 hidden font-medium">
+                  <span>Advance Received:</span>
+                  <span id="view-advance" class="font-mono whitespace-nowrap">-₹0.00</span>
+                </div>
+                <div id="row-roundoff" class="flex justify-between py-0.5 text-slate-500">
+                  <span>Round-off:</span>
+                  <span id="view-roundoff" class="font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+
+                <div class="flex justify-between py-1.5 border-t-2 border-slate-900 text-xs font-bold text-slate-900 bg-slate-100 px-2.5 rounded-lg">
+                  <span id="lbl-view-grand-total">Net Freight Due:</span>
+                  <span id="view-grand-total" class="text-sm text-indigo-700 font-mono whitespace-nowrap">₹0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FOOTER NOTE -->
+          <div class="mt-4 pt-2 border-t border-slate-100 text-center text-[9.5px] text-slate-400">
+            <p id="view-footer-note">This is a verified Freight Summary Sheet of all trips and shipments dispatched.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PRINT SHEET (filled by JS right before printing) -->
+  <div id="print-sheet"></div>
+
+  <!-- DUPLICATE DETECTION CONFIGURATION MODAL -->
+  <div id="modal-dup-config" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden shadow-2xl border border-slate-200">
+      <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+          <i data-lucide="copy" class="w-4 h-4 text-amber-600"></i>
+          <span>Select Columns to Check for Duplicates</span>
+        </h3>
+        <button id="btn-close-dup-config" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3 text-xs">
+        <p class="text-slate-600 leading-relaxed text-[11px]">
+          Entries will be flagged as duplicates if they share the exact same values across checked columns:
+        </p>
+        <div id="dup-cols-checklist" class="space-y-1.5 max-h-56 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/50"></div>
+        <div class="pt-2 flex justify-between items-center border-t border-slate-100">
+          <button type="button" id="btn-reset-dup-cols" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold underline">
+            Reset to LR / Booking ID
+          </button>
+          <button type="button" id="btn-apply-dup-config" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm shadow-indigo-200">
+            Apply Detection
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MASTER SUMMARY MODAL -->
+  <div id="modal-summary" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
+    <div class="bg-white rounded-2xl max-w-4xl w-full mx-4 overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-indigo-600"></i>
+            <span>Master Summary of Generated Freight Sheets & Bills</span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Overview of parties, subtotals, deductions, final amounts & column totals</p>
+        </div>
+        <button id="btn-close-summary" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1">
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-900 text-white uppercase text-[10px] tracking-wider">
+                <th class="py-3 px-3 w-10 text-center">#</th>
+                <th class="py-3 px-3">Ref No</th>
+                <th class="py-3 px-3">Party Name</th>
+                <th class="py-3 px-3 text-right">Freight Amount (₹)</th>
+                <th class="py-3 px-3 text-right">Deduction (₹)</th>
+                <th class="py-3 px-3 text-right">Net Amount (₹)</th>
+                <th class="py-3 px-2 w-8 text-center"></th>
+              </tr>
+            </thead>
+            <tbody id="summary-table-body" class="divide-y divide-slate-100"></tbody>
+            <tfoot id="summary-table-foot" class="border-t-2 border-slate-900 bg-indigo-50/70 font-bold text-xs text-slate-900"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+        <button id="btn-clear-summary" class="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear Log
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="btn-export-summary-excel" class="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-emerald-200 transition-all">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download Master Summary Excel</span>
+          </button>
+          <button id="btn-dismiss-summary" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 font-medium text-xs hover:bg-white">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUSINESS SETTINGS & LOGO MODAL -->
+  <div id="modal-settings" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden shadow-2xl border border-slate-200">
+      <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+          <i data-lucide="store" class="w-4 h-4 text-indigo-600"></i>
+          <span>Business Profile & Company Logo</span>
+        </h3>
+        <button id="btn-close-settings" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-settings" class="p-5 space-y-3 text-xs">
+        
+        <!-- COMPANY LOGO UPLOAD -->
+        <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2">
+          <label class="block font-semibold text-indigo-950 text-[11px] flex items-center gap-1.5">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Company Logo (PNG, JPG, SVG, WebP)</span>
+          </label>
+          
+          <input type="file" id="cfg-logo-input" accept="image/*" class="hidden">
+          
+          <div class="flex items-center gap-3">
+            <div id="cfg-logo-preview-box" class="w-20 h-14 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img id="cfg-logo-preview" src="" alt="Logo Preview" class="hidden max-h-full max-w-full object-contain">
+              <span id="cfg-logo-placeholder" class="text-[9.5px] text-slate-400 text-center px-1">No Logo</span>
+            </div>
+            <div class="space-y-1.5">
+              <button type="button" id="btn-choose-logo" class="px-3 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold rounded-md text-[11px] shadow-xs">
+                Choose Logo
+              </button>
+              <button type="button" id="btn-remove-logo" class="hidden px-2 py-1 text-rose-600 hover:text-rose-700 font-medium text-[10.5px]">
+                Remove Logo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">Company / Transporter Name *</label>
+          <input type="text" id="cfg-name" required class="w-full border border-slate-300 rounded-lg p-2 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">Business Address</label>
+          <textarea id="cfg-address" rows="2" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Phone</label>
+            <input type="text" id="cfg-phone" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Email</label>
+            <input type="email" id="cfg-email" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Supplier GSTIN (Tax Mode)</label>
+            <input type="text" id="cfg-gstin" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-mono uppercase">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">State / Code</label>
+            <input type="text" id="cfg-state" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Ref / Invoice Prefix</label>
+            <input type="text" id="cfg-prefix" value="FS-" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-mono">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Next Number</label>
+            <input type="number" id="cfg-counter" value="101" min="1" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-mono">
+          </div>
+        </div>
+
+        <div class="border-t border-slate-100 pt-2">
+          <p class="font-semibold text-slate-700 mb-1.5">Bank & UPI Settlement</p>
+          <div class="space-y-2">
+            <input type="text" id="cfg-bank" placeholder="Bank Name & A/c No" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="cfg-ifsc" placeholder="IFSC Code" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+              <input type="text" id="cfg-upi" placeholder="UPI ID" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" id="btn-cancel-settings" class="px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-600 font-medium hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT ENGINE -->
+  <script>
+    if (window.lucide) lucide.createIcons();
+
+    function numberToWordsIndian(num) {
+      const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      num = Math.round(num * 100) / 100;
+      if (!num || num === 0) return 'Zero Rupees Only';
+      const split = num.toString().split('.');
+      let n = parseInt(split[0]);
+      let paise = Math.round((num - n) * 100);
+
+      function inWords(n) {
+        if (n === 0) return '';
+        if (n < 20) return a[n];
+        if (n < 100) return b[Math.floor(n / 10)] + ' ' + a[n % 10];
+        if (n < 1000) return inWords(Math.floor(n / 100)) + 'Hundred ' + inWords(n % 100);
+        if (n < 100000) return inWords(Math.floor(n / 1000)) + 'Thousand ' + inWords(n % 1000);
+        if (n < 10000000) return inWords(Math.floor(n / 100000)) + 'Lakh ' + inWords(n % 100000);
+        return inWords(Math.floor(n / 10000000)) + 'Crore ' + inWords(n % 10000000);
+      }
+
+      let words = inWords(n).trim() + ' Rupees';
+      if (paise > 0) words += ' and ' + inWords(paise).trim() + ' Paise';
+      return words + ' Only';
+    }
+
+    // ROBUST NUMBER PARSER (STRIPS RUPEES, COMMAS, DASHES & HANDLES NEGATIVES)
+    function parseCleanNumber(val) {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'number') return isNaN(val) ? 0 : val;
+      let str = String(val).trim();
+      if (!str) return 0;
+      let isNeg = false;
+      if ((str.startsWith('(') && str.endsWith(')')) || str.startsWith('-')) {
+        isNeg = true;
+      }
+      let clean = str.replace(/[^0-9.]/g, '');
+      let num = parseFloat(clean);
+      if (isNaN(num)) return 0;
+      return isNeg ? -num : num;
+    }
+
+    // HELPER: CASE-INSENSITIVE KEY LOOKUP TO PREVENT HEADER MISMATCH
+    function getCleanRowValue(rowData, colName) {
+      if (!rowData || !colName) return '';
+      if (rowData[colName] !== undefined) return rowData[colName];
+      const target = String(colName).trim().toLowerCase();
+      const matchedKey = Object.keys(rowData).find(k => k.trim().toLowerCase() === target);
+      return matchedKey ? rowData[matchedKey] : '';
+    }
+
+    const STATE = {
+      workbook: null,
+      billingMode: 'freight',
+      printOrientation: 'portrait',
+      biz: {
+        name: 'Apex Logistics & Transport Services',
+        address: 'Plot 42, Green Valley Commercial Hub, Pune, Maharashtra - 411001',
+        phone: '+91 98234 56789',
+        email: 'accounts@apexlogistics.in',
+        gstin: '27AAAAA0000A1Z5',
+        state: 'Maharashtra (27)',
+        prefix: 'FS-',
+        counter: 101,
+        bank: 'ICICI Bank - A/c: 012305009988',
+        ifsc: 'ICIC0000123',
+        upi: 'apexlogistics@icici',
+        logo: ''
+      },
+      clientProfiles: [],
+      activeClient: { name: '', contactPerson: '', phone: '', address: '', gstin: '', pan: '' },
+      gst: {
+        placeOfSupply: 'Maharashtra (27)',
+        stateCode: '27',
+        taxType: 'intra',
+        rate: 5,
+        rcm: 'no',
+        hsnSac: '996511',
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        totalTax: 0
+      },
+      rawExcelData: [],
+      availableColumns: [],
+      orderedColumns: [],
+      duplicateColumns: [],
+      mappings: { customerCol: '', sumCol: '', discountCol: '', rateCol: '', qtyCol: '', dateCol: '' },
+      customers: [],
+      selectedCustomer: '__ALL__', // DEFAULT: ALL ENTRIES
+      currentCustomerRows: [],
+      metadata: {
+        invoiceNo: 'FS-101',
+        invoiceDate: new Date().toISOString().split('T')[0],
+        periodFrom: '',
+        periodTo: '',
+        discountVal: 0,
+        discountType: 'column',
+        discountLabel: 'Deductions:',
+        advance: 0,
+        roundOff: true,
+        subtotal: 0,
+        discount: 0,
+        grandTotal: 0
+      },
+      generatedBillsLog: []
+    };
+
+    function initSettings() {
+      const saved = localStorage.getItem('billcraft_freight_settings');
+      if (saved) {
+        try { STATE.biz = { ...STATE.biz, ...JSON.parse(saved) }; } catch (e) {}
+      }
+
+      const savedClients = localStorage.getItem('billcraft_freight_clients');
+      if (savedClients) {
+        try { STATE.clientProfiles = JSON.parse(savedClients); } catch (e) {}
+      }
+      refreshClientQuickList();
+      applyBizSettingsToUI();
+      applyLogoToUI();
+    }
+
+    function saveSettings() {
+      localStorage.setItem('billcraft_freight_settings', JSON.stringify(STATE.biz));
+    }
+
+    function saveClientProfilesToStorage() {
+      localStorage.setItem('billcraft_freight_clients', JSON.stringify(STATE.clientProfiles));
+    }
+
+    function applyLogoToUI() {
+      const logoData = STATE.biz.logo || '';
+      const vFreightLogo = document.getElementById('view-freight-logo');
+      const vGstLogo = document.getElementById('view-gst-logo');
+      const previewImg = document.getElementById('cfg-logo-preview');
+      const placeholder = document.getElementById('cfg-logo-placeholder');
+      const btnRemove = document.getElementById('btn-remove-logo');
+
+      if (logoData) {
+        vFreightLogo.src = logoData;
+        vFreightLogo.classList.remove('hidden');
+
+        vGstLogo.src = logoData;
+        vGstLogo.classList.remove('hidden');
+
+        previewImg.src = logoData;
+        previewImg.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        btnRemove.classList.remove('hidden');
+      } else {
+        vFreightLogo.src = '';
+        vFreightLogo.classList.add('hidden');
+
+        vGstLogo.src = '';
+        vGstLogo.classList.add('hidden');
+
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        btnRemove.classList.add('hidden');
+      }
+    }
+
+    function applyBizSettingsToUI() {
+      document.getElementById('view-freight-biz-name').innerText = STATE.biz.name;
+      document.getElementById('view-freight-biz-address').innerText = STATE.biz.address;
+      document.getElementById('view-freight-biz-phone').innerText = STATE.biz.phone;
+      document.getElementById('view-freight-biz-email').innerText = STATE.biz.email;
+
+      document.getElementById('view-biz-name').innerText = STATE.biz.name;
+      document.getElementById('view-biz-address').innerText = STATE.biz.address;
+      document.getElementById('view-biz-phone').innerText = STATE.biz.phone;
+      document.getElementById('view-biz-email').innerText = STATE.biz.email;
+      document.getElementById('view-supplier-gstin').innerText = STATE.biz.gstin || '';
+      document.getElementById('supplier-gstin').value = STATE.biz.gstin || '';
+      document.getElementById('gst-place-of-supply').value = STATE.biz.state || 'Maharashtra (27)';
+
+      document.getElementById('view-bank-details').innerText = STATE.biz.bank || 'N/A';
+      document.getElementById('view-bank-ifsc').innerText = STATE.biz.ifsc || 'N/A';
+      document.getElementById('view-upi-id').innerText = STATE.biz.upi || 'N/A';
+
+      document.getElementById('cfg-name').value = STATE.biz.name;
+      document.getElementById('cfg-address').value = STATE.biz.address;
+      document.getElementById('cfg-phone').value = STATE.biz.phone;
+      document.getElementById('cfg-email').value = STATE.biz.email;
+      document.getElementById('cfg-gstin').value = STATE.biz.gstin || '';
+      document.getElementById('cfg-state').value = STATE.biz.state || '';
+      document.getElementById('cfg-prefix').value = STATE.biz.prefix;
+      document.getElementById('cfg-counter').value = STATE.biz.counter;
+      document.getElementById('cfg-bank').value = STATE.biz.bank;
+      document.getElementById('cfg-ifsc').value = STATE.biz.ifsc;
+      document.getElementById('cfg-upi').value = STATE.biz.upi;
+
+      if (!STATE.metadata.invoiceNo) {
+        STATE.metadata.invoiceNo = `${STATE.biz.prefix}${STATE.biz.counter}`;
+      }
+      document.getElementById('meta-invoice-no').value = STATE.metadata.invoiceNo;
+      document.getElementById('view-freight-ref-no').innerText = STATE.metadata.invoiceNo;
+      document.getElementById('view-invoice-no').innerText = STATE.metadata.invoiceNo;
+    }
+
+    const logoInput = document.getElementById('cfg-logo-input');
+    document.getElementById('btn-choose-logo').onclick = () => logoInput.click();
+    logoInput.onchange = function() {
+      if (this.files && this.files[0]) {
+        const file = this.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          STATE.biz.logo = evt.target.result;
+          applyLogoToUI();
+          saveSettings();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    document.getElementById('btn-remove-logo').onclick = () => {
+      STATE.biz.logo = '';
+      logoInput.value = '';
+      applyLogoToUI();
+      saveSettings();
+    };
+
+    const settingsModal = document.getElementById('modal-settings');
+    document.getElementById('btn-open-settings').onclick = () => settingsModal.classList.remove('hidden');
+    document.getElementById('btn-close-settings').onclick = () => settingsModal.classList.add('hidden');
+    document.getElementById('btn-cancel-settings').onclick = () => settingsModal.classList.add('hidden');
+    document.getElementById('form-settings').onsubmit = (e) => {
+      e.preventDefault();
+      STATE.biz.name = document.getElementById('cfg-name').value.trim();
+      STATE.biz.address = document.getElementById('cfg-address').value.trim();
+      STATE.biz.phone = document.getElementById('cfg-phone').value.trim();
+      STATE.biz.email = document.getElementById('cfg-email').value.trim();
+      STATE.biz.gstin = document.getElementById('cfg-gstin').value.trim();
+      STATE.biz.state = document.getElementById('cfg-state').value.trim();
+      STATE.biz.prefix = document.getElementById('cfg-prefix').value.trim();
+      STATE.biz.counter = parseInt(document.getElementById('cfg-counter').value) || 101;
+      STATE.biz.bank = document.getElementById('cfg-bank').value.trim();
+      STATE.biz.ifsc = document.getElementById('cfg-ifsc').value.trim();
+      STATE.biz.upi = document.getElementById('cfg-upi').value.trim();
+      STATE.metadata.invoiceNo = `${STATE.biz.prefix}${STATE.biz.counter}`;
+      saveSettings();
+      applyBizSettingsToUI();
+      settingsModal.classList.add('hidden');
+    };
+
+    // Mode Switch
+    const btnModeFreight = document.getElementById('mode-btn-freight');
+    const btnModeGst = document.getElementById('mode-btn-gst');
+    const headerFormatBadge = document.getElementById('header-format-badge');
+    const headerFreightMode = document.getElementById('header-freight-mode');
+    const headerGstMode = document.getElementById('header-gst-mode');
+    const gstSettingsPanel = document.getElementById('gst-settings-panel');
+    const clientGstinRow = document.getElementById('client-gstin-row');
+    const amountWordsBox = document.getElementById('amount-words-box');
+    const freightSignBox = document.getElementById('freight-sign-box');
+    const previewModeTitle = document.getElementById('preview-mode-title');
+    const lblPartyHeading = document.getElementById('lbl-party-heading');
+    const lblSumCol = document.getElementById('lbl-sum-col');
+    const lblViewSubtotal = document.getElementById('lbl-view-subtotal');
+    const lblViewGrandTotal = document.getElementById('lbl-view-grand-total');
+    const lblMetaInvNo = document.getElementById('lbl-meta-inv-no');
+    const lblDeductionTitle = document.getElementById('lbl-deduction-title');
+    const viewFooterNote = document.getElementById('view-footer-note');
+
+    function switchBillingMode(mode) {
+      STATE.billingMode = mode;
+      if (mode === 'freight') {
+        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
+        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        headerFormatBadge.innerText = 'Freight Summary';
+        headerFormatBadge.className = 'text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200';
+
+        headerFreightMode.classList.remove('hidden');
+        headerGstMode.classList.add('hidden');
+        gstSettingsPanel.classList.add('hidden');
+        clientGstinRow.classList.add('hidden');
+        amountWordsBox.classList.add('hidden');
+        freightSignBox.classList.remove('hidden');
+
+        previewModeTitle.innerText = 'Freight Summary Preview';
+        lblPartyHeading.innerText = 'Party / Consignor:';
+        lblSumCol.innerText = 'Wanted Column to Sum (Total Freight):';
+        lblViewSubtotal.innerText = 'Total Freight Amount:';
+        lblViewGrandTotal.innerText = 'Net Freight Due:';
+        lblMetaInvNo.innerText = 'Summary Ref No.';
+        lblDeductionTitle.innerText = 'Toll / Rebate Deductions';
+        viewFooterNote.innerText = 'This is a verified Freight Summary Sheet of all trips and shipments dispatched.';
+      } else {
+        btnModeGst.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700';
+        btnModeFreight.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+        headerFormatBadge.innerText = 'GST Tax Invoice';
+        headerFormatBadge.className = 'text-[10px] font-semibold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200';
+
+        headerFreightMode.classList.add('hidden');
+        headerGstMode.classList.remove('hidden');
+        gstSettingsPanel.classList.remove('hidden');
+        clientGstinRow.classList.remove('hidden');
+        amountWordsBox.classList.remove('hidden');
+        freightSignBox.classList.add('hidden');
+
+        previewModeTitle.innerText = 'GST Tax Invoice Preview';
+        lblPartyHeading.innerText = 'Billed To (Client / Consignee):';
+        lblSumCol.innerText = 'Wanted Column to Sum (Taxable Value):';
+        lblViewSubtotal.innerText = 'Taxable Value:';
+        lblViewGrandTotal.innerText = 'Net Total Payable:';
+        lblMetaInvNo.innerText = 'Tax Invoice No.';
+        lblDeductionTitle.innerText = 'Discount / Deductions';
+        viewFooterNote.innerText = 'Certified that particulars given above are true and correct and tax payable is computed under GST law.';
+      }
+      renderDynamicPreviewTable();
+      calculateTotals();
+    }
+
+    btnModeFreight.onclick = () => switchBillingMode('freight');
+    btnModeGst.onclick = () => switchBillingMode('gst');
+
+    document.getElementById('gst-place-of-supply').oninput = (e) => {
+      STATE.gst.placeOfSupply = e.target.value;
+      document.getElementById('view-place-of-supply').innerText = e.target.value || 'N/A';
+    };
+    document.getElementById('gst-state-code').oninput = (e) => { STATE.gst.stateCode = e.target.value; };
+    document.getElementById('gst-tax-type').onchange = (e) => {
+      STATE.gst.taxType = e.target.value;
+      calculateTotals();
+    };
+    document.getElementById('gst-rate-select').onchange = (e) => {
+      STATE.gst.rate = parseFloat(e.target.value) || 0;
+      calculateTotals();
+    };
+    document.getElementById('gst-rcm-toggle').onchange = (e) => {
+      STATE.gst.rcm = e.target.value;
+      document.getElementById('view-rcm-status').innerText = e.target.value.toUpperCase();
+      calculateTotals();
+    };
+    document.getElementById('supplier-gstin').oninput = (e) => {
+      STATE.biz.gstin = e.target.value.toUpperCase();
+      document.getElementById('view-supplier-gstin').innerText = STATE.biz.gstin;
+      saveSettings();
+    };
+
+    // A4 ORIENTATION
+    const btnOrientPortrait = document.getElementById('btn-orient-portrait');
+    const btnOrientLandscape = document.getElementById('btn-orient-landscape');
+    const printStyleSheet = document.getElementById('print-orientation-style');
+
+    function setPageOrientation(orientation) {
+      STATE.printOrientation = orientation;
+      if (orientation === 'landscape') {
+        btnOrientLandscape.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
+        btnOrientPortrait.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
+        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*portrait;/g, 'size: A4 landscape;');
+        document.getElementById('printable-invoice').style.maxWidth = '1050px';
+      } else {
+        btnOrientPortrait.className = 'px-2 py-1 rounded font-semibold transition-all bg-white text-indigo-700 shadow-xs flex items-center gap-1';
+        btnOrientLandscape.className = 'px-2 py-1 rounded font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1';
+        printStyleSheet.innerHTML = printStyleSheet.innerHTML.replace(/size:\s*A4\s*landscape;/g, 'size: A4 portrait;');
+        document.getElementById('printable-invoice').style.maxWidth = '850px';
+      }
+    }
+
+    btnOrientPortrait.onclick = () => setPageOrientation('portrait');
+    btnOrientLandscape.onclick = () => setPageOrientation('landscape');
+
+    // CLIENT / PARTY PROFILE
+    const toggleClientCard = document.getElementById('toggle-client-card');
+    const clientCardBody = document.getElementById('client-card-body');
+    const clientCardChevron = document.getElementById('client-card-chevron');
+    const clientFilledBadge = document.getElementById('client-filled-badge');
+    let isClientCardExpanded = true;
+
+    toggleClientCard.onclick = () => {
+      isClientCardExpanded = !isClientCardExpanded;
+      clientCardBody.classList.toggle('hidden', !isClientCardExpanded);
+      clientCardChevron.classList.toggle('rotate-180', !isClientCardExpanded);
+    };
+
+    function refreshClientQuickList() {
+      const select = document.getElementById('quick-client-select');
+      select.innerHTML = '<option value="">-- No Saved Party Selected --</option>' + 
+        STATE.clientProfiles.map((c, i) => `<option value="${i}">${escapeHTML(c.name)} (${c.phone || 'Saved'})</option>`).join('');
+    }
+
+    function syncClientProfileUI() {
+      const name = document.getElementById('client-firm-name').value.trim();
+      const person = document.getElementById('client-contact-person').value.trim();
+      const phone = document.getElementById('client-phone').value.trim();
+      const address = document.getElementById('client-address').value.trim();
+      const gstin = document.getElementById('client-gstin').value.trim();
+      const pan = document.getElementById('client-pan').value.trim();
+
+      STATE.activeClient = { name, contactPerson: person, phone, address, gstin, pan };
+
+      const viewName = document.getElementById('view-customer-name');
+      const viewContact = document.getElementById('view-client-contact');
+      const viewAddress = document.getElementById('view-client-address');
+      const viewTaxIds = document.getElementById('view-client-tax-ids');
+      const viewGstin = document.getElementById('view-client-gstin');
+      const viewPan = document.getElementById('view-client-pan');
+
+      if (name) {
+        viewName.innerText = name;
+      } else if (STATE.selectedCustomer && STATE.selectedCustomer !== '__ALL__') {
+        viewName.innerText = STATE.selectedCustomer;
+      } else {
+        viewName.innerText = 'All Parties / Consolidated Bookings';
+      }
+
+      let hasExtra = false;
+      if (person || phone) {
+        hasExtra = true;
+        viewContact.innerText = [person ? `Attn: ${person}` : '', phone ? `Phone: ${phone}` : ''].filter(Boolean).join(' | ');
+        viewContact.classList.remove('hidden');
+      } else {
+        viewContact.classList.add('hidden');
+      }
+
+      if (address) {
+        hasExtra = true;
+        viewAddress.innerText = address;
+        viewAddress.classList.remove('hidden');
+      } else {
+        viewAddress.classList.add('hidden');
+      }
+
+      if (STATE.billingMode === 'gst' && (gstin || pan)) {
+        hasExtra = true;
+        viewTaxIds.classList.remove('hidden');
+        if (gstin) {
+          viewGstin.innerText = `GSTIN: ${gstin.toUpperCase()}`;
+          viewGstin.classList.remove('hidden');
+        } else {
+          viewGstin.classList.add('hidden');
+        }
+        if (pan) {
+          viewPan.innerText = `PAN: ${pan.toUpperCase()}`;
+          viewPan.classList.remove('hidden');
+        } else {
+          viewPan.classList.add('hidden');
+        }
+      } else {
+        viewTaxIds.classList.add('hidden');
+      }
+
+      clientFilledBadge.classList.toggle('hidden', !hasExtra);
+    }
+
+    ['client-firm-name', 'client-contact-person', 'client-phone', 'client-address', 'client-gstin', 'client-pan'].forEach(id => {
+      document.getElementById(id).addEventListener('input', syncClientProfileUI);
+    });
+
+    document.getElementById('btn-save-current-client').onclick = () => {
+      const name = document.getElementById('client-firm-name').value.trim() || STATE.selectedCustomer;
+      if (!name || name === '__ALL__') {
+        alert('Please enter a Party / Client name first.');
+        return;
+      }
+
+      const newProfile = {
+        name: name,
+        contactPerson: document.getElementById('client-contact-person').value.trim(),
+        phone: document.getElementById('client-phone').value.trim(),
+        address: document.getElementById('client-address').value.trim(),
+        gstin: document.getElementById('client-gstin').value.trim(),
+        pan: document.getElementById('client-pan').value.trim()
+      };
+
+      const existingIdx = STATE.clientProfiles.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+      if (existingIdx >= 0) {
+        STATE.clientProfiles[existingIdx] = newProfile;
+      } else {
+        STATE.clientProfiles.push(newProfile);
+      }
+
+      saveClientProfilesToStorage();
+      refreshClientQuickList();
+      alert(`Party profile for "${name}" saved!`);
+    };
+
+    document.getElementById('quick-client-select').onchange = (e) => {
+      const idx = e.target.value;
+      if (idx === '') return;
+      const c = STATE.clientProfiles[parseInt(idx)];
+      if (!c) return;
+
+      document.getElementById('client-firm-name').value = c.name || '';
+      document.getElementById('client-contact-person').value = c.contactPerson || '';
+      document.getElementById('client-phone').value = c.phone || '';
+      document.getElementById('client-address').value = c.address || '';
+      document.getElementById('client-gstin').value = c.gstin || '';
+      document.getElementById('client-pan').value = c.pan || '';
+      syncClientProfileUI();
+    };
+
+    document.getElementById('btn-clear-client').onclick = () => {
+      document.getElementById('client-contact-person').value = '';
+      document.getElementById('client-phone').value = '';
+      document.getElementById('client-address').value = '';
+      document.getElementById('client-gstin').value = '';
+      document.getElementById('client-pan').value = '';
+      document.getElementById('quick-client-select').value = '';
+      syncClientProfileUI();
+    };
+
