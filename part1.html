@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freight Summary & GST Tax Invoice Hub</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- SheetJS with cell styling & merges -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
+    }
+  </script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style id="print-orientation-style">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Print & PDF Layout Rules (separate print sheet) */
+    #print-sheet { display: none; font-family: 'Inter', Arial, sans-serif; color: #0f172a; font-size: 10px; }
+    #print-sheet .ps-head { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 8px; }
+    #print-sheet .ps-title { font-size: 18px; font-weight: 800; text-transform: uppercase; }
+    #print-sheet .ps-biz { font-size: 13px; font-weight: 700; color: #4338ca; }
+    #print-sheet .ps-muted { color: #475569; white-space: pre-line; }
+    #print-sheet .ps-meta { border: 1px solid #cbd5e1; padding: 6px 10px; min-width: 170px; }
+    #print-sheet .ps-party { border: 1px solid #cbd5e1; background: #f8fafc; padding: 6px 10px; margin-bottom: 6px; }
+    #print-sheet table { width: 100%; border-collapse: collapse; }
+    #print-sheet th, #print-sheet td { border: 1px solid #94a3b8; padding: 3px 5px; font-size: 9px; text-align: left; }
+    #print-sheet th { background: #f1f5f9; text-transform: uppercase; }
+    #print-sheet thead { display: table-header-group; }
+    #print-sheet tr { page-break-inside: avoid; }
+    #print-sheet .r { text-align: right; white-space: nowrap; font-family: monospace; }
+    #print-sheet .ps-totals { width: 45%; margin-left: auto; margin-top: 10px; }
+    #print-sheet .ps-totals td { border: none; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+    #print-sheet .ps-grand td { border-top: 2px solid #0f172a; font-weight: 800; font-size: 12px; background: #f1f5f9; }
+    #print-sheet .ps-sign { display: flex; justify-content: space-between; margin-top: 40px; }
+    #print-sheet .ps-sign div { width: 40%; border-top: 1px solid #94a3b8; text-align: center; padding-top: 3px; color: #64748b; }
+    @media print {
+      html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+      header, main, .no-print, #modal-settings, #modal-dup-config, #modal-summary { display: none !important; }
+      #print-sheet { display: block !important; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm 6mm 8mm;
+    }
+
+    .invoice-table {
+      table-layout: auto;
+      width: 100%;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen">
+
+  <!-- TOP HEADER / NAV -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100 flex-shrink-0">
+          <i data-lucide="truck" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg text-slate-900 leading-tight">BillCraft Pro</h1>
+            <span id="header-format-badge" class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+              Freight Summary
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Freight Trip Summary & GST Tax Invoice Hub</p>
+        </div>
+      </div>
+
+      <!-- DUAL-MODE FORMAT SWITCHER -->
+      <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <button id="mode-btn-freight" type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm bg-white text-indigo-700">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+          <span>Freight Summary Sheet</span>
+        </button>
+        <button id="mode-btn-gst" type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900">
+          <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i>
+          <span>GST Tax Invoice</span>
+        </button>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <button id="btn-view-summary-modal" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm shadow-indigo-200 transition-all">
+          <i data-lucide="table" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Bills Summary</span>
+          <span id="badge-logged-count" class="bg-indigo-800 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">0</span>
+        </button>
+
+        <button id="btn-load-sample" class="text-xs flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100 font-medium rounded-lg transition-all">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+          <span class="hidden md:inline">Demo Data</span>
+        </button>
+
+        <button id="btn-open-settings" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all border border-slate-200">
+          <i data-lucide="store" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Settings & Logo</span>
+        </button>
+
+        <button id="btn-download-app-html" title="Download standalone index.html file" class="text-xs flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg transition-all shadow-sm">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span class="hidden lg:inline">Save App HTML</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- LEFT WORKFLOW CONTROLS (5 COLS) -->
+      <div class="lg:col-span-5 space-y-4 no-print">
+        
+        <!-- STEP 1: UPLOAD FILE -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">1</span>
+              <h2 class="font-semibold text-sm text-slate-900">Upload Booking / Freight Excel</h2>
+            </div>
+            <span id="file-status" class="text-[11px] text-slate-400 font-medium truncate max-w-[180px]">No file loaded</span>
+          </div>
+
+          <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv, .xlsm, .ods" class="hidden">
+
+          <label for="excel-file-input" id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50/70 hover:bg-indigo-50/40 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 block">
+            <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center shadow-xs">
+              <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <p class="text-xs font-semibold text-slate-800">Click anywhere here or drag & drop</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Supports .xlsx, .xls, .csv, .xlsm, .ods</p>
+            </div>
+            <button type="button" id="btn-browse-file" class="mt-1 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs pointer-events-auto">
+              Browse Excel File
+            </button>
+          </label>
+
+          <div id="sheet-selector-container" class="mt-3 pt-3 border-t border-slate-100 hidden">
+            <label class="block text-[11px] font-semibold text-slate-700 mb-1">Select Worksheet from File:</label>
+            <select id="sheet-select" class="w-full border border-indigo-200 rounded-lg p-2 bg-indigo-50/40 text-xs font-semibold text-indigo-950 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <!-- STEP 2: CUSTOMER & BASE SUM COLUMN -->
+        <div id="step-customer-card" class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3.5 hidden">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">2</span>
+              <h2 class="font-semibold text-sm text-slate-900">Party & Freight Sum Column</h2>
+            </div>
+            <span id="customer-count-badge" class="text-[10px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-200">0 found</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label class="block text-slate-500 font-medium mb-1">Party / Customer Column</label>
+              <select id="map-customer-col" class="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
+            </div>
+            <div>
+              <label class="block text-slate-500 font-medium mb-1">Select Party to Filter</label>
+              <select id="customer-select" class="w-full border border-slate-300 rounded-lg p-2 bg-white font-semibold text-indigo-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
+            </div>
+          </div>
+
+          <!-- THE WANTED COLUMN TO SUM -->
+          <div class="border-t border-slate-100 pt-3 space-y-2">
+            <div class="bg-amber-50/80 border border-amber-300 rounded-xl p-3">
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                  <i data-lucide="sigma" class="w-4 h-4 text-amber-600"></i>
+                  <span id="lbl-sum-col">Wanted Column to Sum (Total Freight):</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-amber-800 leading-relaxed mb-2 font-medium">
+                Choose the column whose values will be summed up to form the <strong>Total Freight Amount</strong>.
+              </p>
+              <select id="map-sum-col" class="w-full border border-amber-400 rounded-lg p-2 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-xs"></select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+              <div>
+                <label class="block text-slate-500 mb-0.5">Rate / Price Column</label>
+                <select id="map-rate-col" class="w-full border border-slate-300 rounded-md p-1.5 bg-white text-slate-800"></select>
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-0.5">Weight / Quantity Column</label>
+                <select id="map-qty-col" class="w-full border border-slate-300 rounded-md p-1.5 bg-white text-slate-800"></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLIENT PROFILE MANAGEMENT -->
+        <div id="step-client-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden">
+          <div class="p-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none" id="toggle-client-card">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">
+                <i data-lucide="user-check" class="w-3 h-3"></i>
+              </span>
+              <div>
+                <h3 class="font-semibold text-xs text-slate-900">Party / Client Details (Optional)</h3>
+                <p class="text-[10px] text-slate-500">Address, contact person & saved quick profiles</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="client-filled-badge" class="hidden text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">Added</span>
+              <i data-lucide="chevron-down" id="client-card-chevron" class="w-4 h-4 text-slate-400 transition-transform"></i>
+            </div>
+          </div>
+
+          <div id="client-card-body" class="p-4 space-y-3 text-xs">
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-500 font-medium mb-1">Pick Saved Party:</label>
+                <select id="quick-client-select" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs text-slate-800 bg-white">
+                  <option value="">-- No Saved Party Selected --</option>
+                </select>
+              </div>
+              <button id="btn-save-current-client" type="button" class="mt-4 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] rounded-lg border border-indigo-200 transition-all flex items-center gap-1">
+                <i data-lucide="bookmark-plus" class="w-3.5 h-3.5"></i>
+                <span>Save</span>
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-slate-600 font-medium mb-1">Party / Company Name</label>
+              <input type="text" id="client-firm-name" placeholder="Party Name" class="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-900">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">Contact Person</label>
+                <input type="text" id="client-contact-person" placeholder="e.g. Mr. Sharma" class="w-full border border-slate-300 rounded-lg p-1.5 text-slate-800">
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">Phone / Mobile</label>
+                <input type="text" id="client-phone" placeholder="+91 98765 43210" class="w-full border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-500 mb-0.5 text-[11px]">Address & City / State</label>
+              <textarea id="client-address" rows="2" placeholder="Street, Industrial Area, City - Pin" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800"></textarea>
+            </div>
+
+            <div id="client-gstin-row" class="hidden grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">Buyer GSTIN</label>
+                <input type="text" id="client-gstin" placeholder="27AAAAA0000A1Z5" class="w-full border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono uppercase">
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">PAN / ID No</label>
+                <input type="text" id="client-pan" placeholder="ABCDE1234F" class="w-full border border-slate-300 rounded-lg p-1.5 text-slate-800 font-mono uppercase">
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-1">
+              <button id="btn-clear-client" type="button" class="text-[11px] text-slate-400 hover:text-rose-600 font-medium">Clear Details</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: DYNAMIC COLUMN SELECTOR & ORDER (CHIPS) -->
+        <div id="step-columns-card" class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">3</span>
+              <div>
+                <h2 class="font-semibold text-sm text-slate-900">Columns to Include in Summary / PDF</h2>
+                <p class="text-[11px] text-slate-500">Pick columns & order; strictly printed on PDF and Excel</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button id="btn-select-all-cols" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded font-medium transition-colors">All</button>
+              <button id="btn-deselect-all-cols" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded font-medium transition-colors">Clear</button>
+            </div>
+          </div>
+
+          <div id="columns-container" class="space-y-1.5 max-h-52 overflow-y-auto pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/60"></div>
+        </div>
+
+        <!-- STEP 4: DEDUCTIONS & METADATA -->
+        <div id="step-meta-card" class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3.5 hidden">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">4</span>
+            <h2 class="font-semibold text-sm text-slate-900">Summary Meta & Adjustments</h2>
+          </div>
+
+          <!-- GST TAX INVOICE ARCHITECTURE (ONLY IN GST MODE) -->
+          <div id="gst-settings-panel" class="hidden bg-indigo-50/70 border-2 border-indigo-200 rounded-xl p-3.5 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                <i data-lucide="scale" class="w-4 h-4 text-indigo-600"></i>
+                <span>GST Tax Architecture</span>
+              </div>
+              <span class="text-[10px] font-semibold bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full">Mandatory GST</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">Place of Supply (State)</label>
+                <input type="text" id="gst-place-of-supply" placeholder="e.g. Maharashtra (27)" class="w-full border border-indigo-300 rounded-lg p-2 font-medium bg-white text-slate-800">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">State Code</label>
+                <input type="text" id="gst-state-code" placeholder="e.g. 27" class="w-full border border-indigo-300 rounded-lg p-2 font-mono bg-white text-slate-800">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">Tax Type</label>
+                <select id="gst-tax-type" class="w-full border border-indigo-300 rounded-lg p-2 bg-white font-semibold text-slate-800">
+                  <option value="intra">Intra-State (CGST + SGST)</option>
+                  <option value="inter">Inter-State (IGST)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">GST Rate</label>
+                <select id="gst-rate-select" class="w-full border border-indigo-300 rounded-lg p-2 bg-white font-semibold text-slate-800">
+                  <option value="0">0% (Nil / Exempt)</option>
+                  <option value="5" selected>5% (GTA / Freight)</option>
+                  <option value="12">12%</option>
+                  <option value="18">18%</option>
+                  <option value="28">28%</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">Reverse Charge (RCM)</label>
+                <select id="gst-rcm-toggle" class="w-full border border-indigo-300 rounded-lg p-2 bg-white font-semibold text-slate-800">
+                  <option value="no" selected>No (Forward Charge)</option>
+                  <option value="yes">Yes (Reverse Charge)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">HSN / SAC Code</label>
+                <input type="text" id="gst-hsn-sac" value="996511" class="w-full border border-indigo-300 rounded-lg p-2 font-mono bg-white text-slate-800">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 font-medium mb-1">Supplier GSTIN</label>
+                <input type="text" id="supplier-gstin" class="w-full border border-indigo-300 rounded-lg p-2 font-mono bg-white text-slate-800 uppercase">
+              </div>
+            </div>
+          </div>
+
+          <!-- DEDUCTION / DISCOUNT ENGINE -->
+          <div class="bg-emerald-50/70 border-2 border-emerald-300 rounded-xl p-3.5 space-y-2.5 shadow-xs">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <i data-lucide="tag" class="w-4 h-4 text-emerald-600"></i>
+                <span id="lbl-deduction-title">Toll / Rebate Deductions</span>
+              </label>
+              <span id="badge-discount-summary" class="text-xs text-emerald-800 font-mono font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">-₹0.00 Off</span>
+            </div>
+
+            <div>
+              <label class="block text-[11px] text-slate-600 font-medium mb-1">Select Deduction Mode:</label>
+              <select id="calc-discount-type" class="w-full border border-emerald-300 rounded-lg p-2 bg-white text-slate-800 font-semibold text-xs focus:ring-2 focus:ring-emerald-500">
+                <option value="column">Σ Sum of a Column (e.g. Toll/Rebate/Deductions)</option>
+                <option value="flat">₹ Flat Rupee Amount</option>
+                <option value="percent">% Percentage Deduction</option>
+              </select>
+            </div>
+
+            <div id="discount-column-wrapper" class="space-y-1 bg-white p-2.5 rounded-lg border border-emerald-200">
+              <label class="block text-[11px] font-semibold text-emerald-900">
+                Choose Column to Deduct:
+              </label>
+              <select id="map-discount-col" class="w-full border border-emerald-300 rounded-md p-1.5 bg-emerald-50/40 text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-emerald-500"></select>
+            </div>
+
+            <div id="discount-manual-wrapper" class="hidden space-y-1 bg-white p-2.5 rounded-lg border border-emerald-200">
+              <label id="discount-manual-label" class="block text-[11px] text-slate-700 font-semibold mb-1">Enter Deduction Amount:</label>
+              <input type="number" id="calc-discount-val" value="0" min="0" step="any" class="w-full border border-emerald-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 bg-white text-xs">
+            </div>
+
+            <div class="bg-emerald-100/70 p-2 rounded-lg text-[11px] text-emerald-900 font-mono flex items-center justify-between">
+              <span>Payable Formula:</span>
+              <span id="calc-formula-display" class="font-bold">₹0 - ₹0 = ₹0</span>
+            </div>
+          </div>
+
+          <!-- FIXED BILLING PERIOD -->
+          <div class="space-y-2 pt-1 border-t border-slate-100">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-700">Summary Period</label>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-autofill-dates" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium underline">
+                  Auto-detect
+                </button>
+                <label class="flex items-center gap-1 text-[10px] text-slate-600 font-medium cursor-pointer bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  <input type="checkbox" id="lock-period-dates" checked class="w-3 h-3 text-indigo-600 rounded">
+                  <span>Lock Period</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">Period From</label>
+                <input type="date" id="meta-period-from" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500">
+              </div>
+              <div>
+                <label class="block text-slate-500 mb-0.5 text-[11px]">Period To</label>
+                <input type="date" id="meta-period-to" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- Ref No, Date, Advance -->
+          <div class="grid grid-cols-2 gap-2.5 text-xs">
+            <div>
+              <label id="lbl-meta-inv-no" class="block text-slate-500 font-medium mb-1">Summary Ref No.</label>
+              <input type="text" id="meta-invoice-no" class="w-full border border-slate-300 rounded-lg p-2 font-mono text-slate-800">
+            </div>
+            <div>
+              <label class="block text-slate-500 font-medium mb-1">Date</label>
+              <input type="date" id="meta-invoice-date" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 text-xs">
+            <div>
+              <label class="block text-slate-500 font-medium mb-1">Advance Received (₹)</label>
+              <input type="number" id="calc-advance" value="0" min="0" step="any" class="w-full border border-slate-300 rounded-lg p-2 text-slate-800 font-mono">
+            </div>
+            <div class="flex items-center pt-5">
+              <label for="calc-round-off" class="flex items-center gap-2 cursor-pointer text-xs text-slate-600">
+                <input type="checkbox" id="calc-round-off" checked class="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300">
+                <span>Auto Round-Off Total</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
